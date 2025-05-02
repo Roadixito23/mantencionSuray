@@ -1,4 +1,4 @@
-name: Mantenimiento_de_Bus
+name: mantenimiento_de_bus
 description: "App dirigida al mantenimiento de Buses"
 publish_to: 'none'
 version: 1.0.0+1
