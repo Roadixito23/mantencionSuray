@@ -1,0 +1,990 @@
+<html>
+<head>
+<title>edit_maquina_screen.dart</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #bcbec4;}
+.s1 { color: #6aab73;}
+.s2 { color: #bcbec4;}
+.s3 { color: #cf8e6d;}
+.s4 { color: #7a7e85;}
+.s5 { color: #2aacb8;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+edit_maquina_screen.dart</font>
+</center></td></tr></table>
+<pre><span class="s0">import </span><span class="s1">'package:flutter/material.dart'</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">'package:flutter/services.dart'</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">'dart:convert'</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">'dart:io'</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">'package:path_provider/path_provider.dart'</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">'package:file_picker/file_picker.dart'</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">'package:path/path.dart' </span><span class="s0">as path</span><span class="s2">;</span>
+
+<span class="s3">class </span><span class="s0">EditMaquinaScreen </span><span class="s3">extends </span><span class="s0">StatefulWidget </span><span class="s2">{</span>
+  <span class="s3">final </span><span class="s0">Function</span><span class="s2">(</span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt;) </span><span class="s0">onSave</span><span class="s2">;</span>
+  <span class="s3">final </span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt;? </span><span class="s0">maquinaExistente</span><span class="s2">;</span>
+
+  <span class="s3">const </span><span class="s0">EditMaquinaScreen</span><span class="s2">({</span>
+    <span class="s0">Key</span><span class="s2">? </span><span class="s0">key</span><span class="s2">,</span>
+    <span class="s0">required </span><span class="s3">this</span><span class="s2">.</span><span class="s0">onSave</span><span class="s2">,</span>
+    <span class="s3">this</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">,</span>
+  <span class="s2">}) : </span><span class="s3">super</span><span class="s2">(</span><span class="s0">key</span><span class="s2">: </span><span class="s0">key</span><span class="s2">);</span>
+
+  <span class="s0">@override</span>
+  <span class="s0">_EditMaquinaScreenState createState</span><span class="s2">() =&gt; </span><span class="s0">_EditMaquinaScreenState</span><span class="s2">();</span>
+<span class="s2">}</span>
+
+<span class="s3">class </span><span class="s0">_EditMaquinaScreenState </span><span class="s3">extends </span><span class="s0">State</span><span class="s2">&lt;</span><span class="s0">EditMaquinaScreen</span><span class="s2">&gt; {</span>
+  <span class="s3">final </span><span class="s0">_formKey </span><span class="s2">= </span><span class="s0">GlobalKey</span><span class="s2">&lt;</span><span class="s0">FormState</span><span class="s2">&gt;();</span>
+  <span class="s0">late TextEditingController _idController</span><span class="s2">, </span><span class="s0">_placaController</span><span class="s2">, </span><span class="s0">_modeloController</span><span class="s2">,</span>
+      <span class="s0">_capacidadController</span><span class="s2">, </span><span class="s0">_kilometrajeController</span><span class="s2">, </span><span class="s0">_binController</span><span class="s2">,</span>
+      <span class="s0">_modeloFiltroAceiteController</span><span class="s2">, </span><span class="s0">_modeloFiltroAireController</span><span class="s2">,</span>
+      <span class="s0">_modeloFiltroPetroleoController</span><span class="s2">, </span><span class="s0">_modeloDecantadorController</span><span class="s2">,</span>
+      <span class="s0">_comentarioController</span><span class="s2">;</span>
+
+  <span class="s4">// Lista de correas (con modelo y fecha)</span>
+  <span class="s0">List</span><span class="s2">&lt;</span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt;&gt; </span><span class="s0">_correas </span><span class="s2">= [];</span>
+
+  <span class="s4">// Lista de fotos adjuntas</span>
+  <span class="s0">List</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">&gt; </span><span class="s0">_fotos </span><span class="s2">= [];</span>
+
+  <span class="s0">String _estado </span><span class="s2">= </span><span class="s1">'Activo'</span><span class="s2">;</span>
+  <span class="s0">DateTime</span><span class="s2">? </span><span class="s0">_fechaRevisionTecnica</span><span class="s2">, </span><span class="s0">_fechaCambioFiltroAceite</span><span class="s2">,</span>
+      <span class="s0">_fechaCambioFiltroAire</span><span class="s2">, </span><span class="s0">_fechaCambioFiltroPetroleo</span><span class="s2">,</span>
+      <span class="s0">_fechaRevisionDecantador</span><span class="s2">;</span>
+
+  <span class="s0">bool _cargando </span><span class="s2">= </span><span class="s3">false</span><span class="s2">;</span>
+
+  <span class="s4">// Colores estándar</span>
+  <span class="s3">final </span><span class="s0">Color _colorPrimario </span><span class="s2">= </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">blue</span><span class="s2">;</span>
+  <span class="s3">final </span><span class="s0">Color _colorAlerta </span><span class="s2">= </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">red</span><span class="s2">;</span>
+  <span class="s3">final </span><span class="s0">Color _colorFondo </span><span class="s2">= </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">white</span><span class="s2">;</span>
+  <span class="s3">final </span><span class="s0">Color _colorTextoSecundario </span><span class="s2">= </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">grey</span><span class="s2">.</span><span class="s0">shade600</span><span class="s2">;</span>
+
+  <span class="s0">@override</span>
+  <span class="s3">void </span><span class="s0">initState</span><span class="s2">() {</span>
+    <span class="s3">super</span><span class="s2">.</span><span class="s0">initState</span><span class="s2">();</span>
+    <span class="s0">_initializeControllers</span><span class="s2">();</span>
+    <span class="s0">_setInitialValues</span><span class="s2">();</span>
+    <span class="s0">_initializeCorreas</span><span class="s2">();</span>
+  <span class="s2">}</span>
+
+  <span class="s3">void </span><span class="s0">_initializeControllers</span><span class="s2">() {</span>
+    <span class="s0">_idController </span><span class="s2">= </span><span class="s0">TextEditingController</span><span class="s2">(</span><span class="s0">text</span><span class="s2">: </span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">?[</span><span class="s1">'id'</span><span class="s2">] ?? </span><span class="s1">''</span><span class="s2">);</span>
+    <span class="s0">_placaController </span><span class="s2">= </span><span class="s0">TextEditingController</span><span class="s2">(</span><span class="s0">text</span><span class="s2">: </span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">?[</span><span class="s1">'placa'</span><span class="s2">] ?? </span><span class="s1">''</span><span class="s2">);</span>
+    <span class="s0">_modeloController </span><span class="s2">= </span><span class="s0">TextEditingController</span><span class="s2">(</span><span class="s0">text</span><span class="s2">: </span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">?[</span><span class="s1">'modelo'</span><span class="s2">] ?? </span><span class="s1">''</span><span class="s2">);</span>
+    <span class="s0">_capacidadController </span><span class="s2">= </span><span class="s0">TextEditingController</span><span class="s2">(</span><span class="s0">text</span><span class="s2">: </span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">?[</span><span class="s1">'capacidad'</span><span class="s2">]?.</span><span class="s0">toString</span><span class="s2">() ?? </span><span class="s1">''</span><span class="s2">);</span>
+    <span class="s0">_kilometrajeController </span><span class="s2">= </span><span class="s0">TextEditingController</span><span class="s2">(</span><span class="s0">text</span><span class="s2">: </span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">?[</span><span class="s1">'kilometraje'</span><span class="s2">]?.</span><span class="s0">toString</span><span class="s2">() ?? </span><span class="s1">''</span><span class="s2">);</span>
+    <span class="s0">_binController </span><span class="s2">= </span><span class="s0">TextEditingController</span><span class="s2">(</span><span class="s0">text</span><span class="s2">: </span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">?[</span><span class="s1">'bin'</span><span class="s2">] ?? </span><span class="s1">''</span><span class="s2">);</span>
+    <span class="s0">_modeloFiltroAceiteController </span><span class="s2">= </span><span class="s0">TextEditingController</span><span class="s2">(</span><span class="s0">text</span><span class="s2">: </span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">?[</span><span class="s1">'modeloFiltroAceite'</span><span class="s2">] ?? </span><span class="s1">''</span><span class="s2">);</span>
+    <span class="s0">_modeloFiltroAireController </span><span class="s2">= </span><span class="s0">TextEditingController</span><span class="s2">(</span><span class="s0">text</span><span class="s2">: </span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">?[</span><span class="s1">'modeloFiltroAire'</span><span class="s2">] ?? </span><span class="s1">''</span><span class="s2">);</span>
+    <span class="s0">_modeloFiltroPetroleoController </span><span class="s2">= </span><span class="s0">TextEditingController</span><span class="s2">(</span><span class="s0">text</span><span class="s2">: </span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">?[</span><span class="s1">'modeloFiltroPetroleo'</span><span class="s2">] ?? </span><span class="s1">''</span><span class="s2">);</span>
+    <span class="s0">_modeloDecantadorController </span><span class="s2">= </span><span class="s0">TextEditingController</span><span class="s2">(</span><span class="s0">text</span><span class="s2">: </span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">?[</span><span class="s1">'modeloDecantador'</span><span class="s2">] ?? </span><span class="s1">''</span><span class="s2">);</span>
+    <span class="s0">_comentarioController </span><span class="s2">= </span><span class="s0">TextEditingController</span><span class="s2">(</span><span class="s0">text</span><span class="s2">: </span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">?[</span><span class="s1">'comentario'</span><span class="s2">] ?? </span><span class="s1">''</span><span class="s2">);</span>
+  <span class="s2">}</span>
+
+  <span class="s3">void </span><span class="s0">_setInitialValues</span><span class="s2">() {</span>
+    <span class="s3">if </span><span class="s2">(</span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente </span><span class="s2">!= </span><span class="s3">null</span><span class="s2">) {</span>
+      <span class="s0">_estado </span><span class="s2">= </span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">![</span><span class="s1">'estado'</span><span class="s2">] ?? </span><span class="s0">_estado</span><span class="s2">;</span>
+      <span class="s0">_fechaRevisionTecnica </span><span class="s2">= </span><span class="s0">_parseDate</span><span class="s2">(</span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">?[</span><span class="s1">'fechaRevisionTecnica'</span><span class="s2">]);</span>
+      <span class="s0">_fechaCambioFiltroAceite </span><span class="s2">= </span><span class="s0">_parseDate</span><span class="s2">(</span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">?[</span><span class="s1">'fechaCambioFiltroAceite'</span><span class="s2">]);</span>
+      <span class="s0">_fechaCambioFiltroAire </span><span class="s2">= </span><span class="s0">_parseDate</span><span class="s2">(</span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">?[</span><span class="s1">'fechaCambioFiltroAire'</span><span class="s2">]);</span>
+      <span class="s0">_fechaCambioFiltroPetroleo </span><span class="s2">= </span><span class="s0">_parseDate</span><span class="s2">(</span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">?[</span><span class="s1">'fechaCambioFiltroPetroleo'</span><span class="s2">]);</span>
+      <span class="s0">_fechaRevisionDecantador </span><span class="s2">= </span><span class="s0">_parseDate</span><span class="s2">(</span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">?[</span><span class="s1">'fechaRevisionDecantador'</span><span class="s2">]);</span>
+
+      <span class="s4">// Cargar fotos si existen</span>
+      <span class="s3">if </span><span class="s2">(</span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">![</span><span class="s1">'fotos'</span><span class="s2">] != </span><span class="s3">null</span><span class="s2">) {</span>
+        <span class="s0">_fotos </span><span class="s2">= </span><span class="s0">List</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">&gt;.</span><span class="s0">from</span><span class="s2">(</span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">![</span><span class="s1">'fotos'</span><span class="s2">]);</span>
+      <span class="s2">}</span>
+    <span class="s2">}</span>
+  <span class="s2">}</span>
+
+  <span class="s3">void </span><span class="s0">_initializeCorreas</span><span class="s2">() {</span>
+    <span class="s4">// Inicializar correas desde datos existentes</span>
+    <span class="s3">if </span><span class="s2">(</span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">?[</span><span class="s1">'correas'</span><span class="s2">] != </span><span class="s3">null</span><span class="s2">) {</span>
+      <span class="s3">try </span><span class="s2">{</span>
+        <span class="s3">final </span><span class="s0">List</span><span class="s2">&lt;</span><span class="s0">dynamic</span><span class="s2">&gt; </span><span class="s0">correasData </span><span class="s2">= </span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">![</span><span class="s1">'correas'</span><span class="s2">];</span>
+        <span class="s0">_correas </span><span class="s2">= </span><span class="s0">correasData</span><span class="s2">.</span><span class="s0">cast</span><span class="s2">&lt;</span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt;&gt;();</span>
+
+        <span class="s4">// Asegurarse de que cada correa tenga un controlador</span>
+        <span class="s3">for </span><span class="s2">(</span><span class="s3">var </span><span class="s0">correa </span><span class="s3">in </span><span class="s0">_correas</span><span class="s2">) {</span>
+          <span class="s0">correa</span><span class="s2">[</span><span class="s1">'controller'</span><span class="s2">] = </span><span class="s0">TextEditingController</span><span class="s2">(</span><span class="s0">text</span><span class="s2">: </span><span class="s0">correa</span><span class="s2">[</span><span class="s1">'modelo'</span><span class="s2">] ?? </span><span class="s1">''</span><span class="s2">);</span>
+        <span class="s2">}</span>
+      <span class="s2">} </span><span class="s3">catch </span><span class="s2">(</span><span class="s0">e</span><span class="s2">) {</span>
+        <span class="s0">print</span><span class="s2">(</span><span class="s1">'Error al cargar correas: </span><span class="s2">$</span><span class="s0">e</span><span class="s1">'</span><span class="s2">);</span>
+        <span class="s0">_correas </span><span class="s2">= [];</span>
+      <span class="s2">}</span>
+    <span class="s2">} </span><span class="s3">else if </span><span class="s2">(</span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">?[</span><span class="s1">'modeloCorrea'</span><span class="s2">] != </span><span class="s3">null</span><span class="s2">) {</span>
+      <span class="s4">// Compatibilidad con versión anterior (una sola correa)</span>
+      <span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt; </span><span class="s0">correaAntigua </span><span class="s2">= {</span>
+        <span class="s1">'modelo'</span><span class="s2">: </span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">![</span><span class="s1">'modeloCorrea'</span><span class="s2">],</span>
+        <span class="s1">'fecha'</span><span class="s2">: </span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">![</span><span class="s1">'fechaRevisionCorrea'</span><span class="s2">],</span>
+        <span class="s1">'controller'</span><span class="s2">: </span><span class="s0">TextEditingController</span><span class="s2">(</span><span class="s0">text</span><span class="s2">: </span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente</span><span class="s2">![</span><span class="s1">'modeloCorrea'</span><span class="s2">]),</span>
+      <span class="s2">};</span>
+      <span class="s0">_correas </span><span class="s2">= [</span><span class="s0">correaAntigua</span><span class="s2">];</span>
+    <span class="s2">}</span>
+
+    <span class="s4">// Si no hay correas, agregar una vacía</span>
+    <span class="s3">if </span><span class="s2">(</span><span class="s0">_correas</span><span class="s2">.</span><span class="s0">isEmpty</span><span class="s2">) {</span>
+      <span class="s0">_agregarCorrea</span><span class="s2">();</span>
+    <span class="s2">}</span>
+  <span class="s2">}</span>
+
+  <span class="s3">void </span><span class="s0">_agregarCorrea</span><span class="s2">() {</span>
+    <span class="s3">if </span><span class="s2">(</span><span class="s0">_correas</span><span class="s2">.</span><span class="s0">length </span><span class="s2">&lt; </span><span class="s5">6</span><span class="s2">) {</span>
+      <span class="s0">setState</span><span class="s2">(() {</span>
+        <span class="s0">_correas</span><span class="s2">.</span><span class="s0">add</span><span class="s2">({</span>
+          <span class="s1">'modelo'</span><span class="s2">: </span><span class="s1">''</span><span class="s2">,</span>
+          <span class="s1">'fecha'</span><span class="s2">: </span><span class="s3">null</span><span class="s2">,</span>
+          <span class="s1">'controller'</span><span class="s2">: </span><span class="s0">TextEditingController</span><span class="s2">(),</span>
+        <span class="s2">});</span>
+      <span class="s2">});</span>
+    <span class="s2">}</span>
+  <span class="s2">}</span>
+
+  <span class="s4">// Eliminar una correa</span>
+  <span class="s3">void </span><span class="s0">_eliminarCorrea</span><span class="s2">(</span><span class="s0">int index</span><span class="s2">) {</span>
+    <span class="s3">if </span><span class="s2">(</span><span class="s0">_correas</span><span class="s2">.</span><span class="s0">length </span><span class="s2">&gt; </span><span class="s5">1</span><span class="s2">) {</span>
+      <span class="s0">setState</span><span class="s2">(() {</span>
+        <span class="s3">final </span><span class="s0">controllerToDispose </span><span class="s2">= </span><span class="s0">_correas</span><span class="s2">[</span><span class="s0">index</span><span class="s2">][</span><span class="s1">'controller'</span><span class="s2">] </span><span class="s0">as TextEditingController</span><span class="s2">?;</span>
+        <span class="s3">if </span><span class="s2">(</span><span class="s0">controllerToDispose </span><span class="s2">!= </span><span class="s3">null</span><span class="s2">) {</span>
+          <span class="s0">controllerToDispose</span><span class="s2">.</span><span class="s0">dispose</span><span class="s2">();</span>
+        <span class="s2">}</span>
+        <span class="s0">_correas</span><span class="s2">.</span><span class="s0">removeAt</span><span class="s2">(</span><span class="s0">index</span><span class="s2">);</span>
+      <span class="s2">});</span>
+    <span class="s2">}</span>
+  <span class="s2">}</span>
+
+  <span class="s0">DateTime</span><span class="s2">? </span><span class="s0">_parseDate</span><span class="s2">(</span><span class="s0">String</span><span class="s2">? </span><span class="s0">dateString</span><span class="s2">) {</span>
+    <span class="s3">return </span><span class="s0">dateString </span><span class="s2">!= </span><span class="s3">null </span><span class="s2">? </span><span class="s0">DateTime</span><span class="s2">.</span><span class="s0">tryParse</span><span class="s2">(</span><span class="s0">dateString</span><span class="s2">) : </span><span class="s3">null</span><span class="s2">;</span>
+  <span class="s2">}</span>
+
+  <span class="s0">Future</span><span class="s2">&lt;</span><span class="s3">void</span><span class="s2">&gt; </span><span class="s0">_seleccionarFecha</span><span class="s2">(</span><span class="s0">BuildContext context</span><span class="s2">, </span><span class="s0">DateTime</span><span class="s2">? </span><span class="s0">fechaInicial</span><span class="s2">, </span><span class="s0">Function</span><span class="s2">(</span><span class="s0">DateTime</span><span class="s2">) </span><span class="s0">onFechaSeleccionada</span><span class="s2">) </span><span class="s0">async </span><span class="s2">{</span>
+    <span class="s3">final </span><span class="s0">DateTime</span><span class="s2">? </span><span class="s0">fechaSeleccionada </span><span class="s2">= </span><span class="s0">await showDatePicker</span><span class="s2">(</span>
+      <span class="s0">context</span><span class="s2">: </span><span class="s0">context</span><span class="s2">,</span>
+      <span class="s0">initialDate</span><span class="s2">: </span><span class="s0">fechaInicial </span><span class="s2">?? </span><span class="s0">DateTime</span><span class="s2">.</span><span class="s0">now</span><span class="s2">(),</span>
+      <span class="s0">firstDate</span><span class="s2">: </span><span class="s0">DateTime</span><span class="s2">(</span><span class="s5">2000</span><span class="s2">),</span>
+      <span class="s0">lastDate</span><span class="s2">: </span><span class="s0">DateTime</span><span class="s2">(</span><span class="s5">2101</span><span class="s2">),</span>
+      <span class="s0">locale</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Locale</span><span class="s2">(</span><span class="s1">'es'</span><span class="s2">, </span><span class="s1">'ES'</span><span class="s2">),</span>
+      <span class="s0">builder</span><span class="s2">: (</span><span class="s0">context</span><span class="s2">, </span><span class="s0">child</span><span class="s2">) {</span>
+        <span class="s3">return </span><span class="s0">Theme</span><span class="s2">(</span>
+          <span class="s0">data</span><span class="s2">: </span><span class="s0">Theme</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">copyWith</span><span class="s2">(</span>
+            <span class="s0">colorScheme</span><span class="s2">: </span><span class="s0">ColorScheme</span><span class="s2">.</span><span class="s0">light</span><span class="s2">(</span>
+              <span class="s0">primary</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">,</span>
+              <span class="s0">onPrimary</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">white</span><span class="s2">,</span>
+              <span class="s0">onSurface</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">black</span><span class="s2">,</span>
+            <span class="s2">),</span>
+          <span class="s2">),</span>
+          <span class="s0">child</span><span class="s2">: </span><span class="s0">child</span><span class="s2">!,</span>
+        <span class="s2">);</span>
+      <span class="s2">},</span>
+    <span class="s2">);</span>
+
+    <span class="s3">if </span><span class="s2">(</span><span class="s0">fechaSeleccionada </span><span class="s2">!= </span><span class="s3">null</span><span class="s2">) {</span>
+      <span class="s0">onFechaSeleccionada</span><span class="s2">(</span><span class="s0">fechaSeleccionada</span><span class="s2">);</span>
+    <span class="s2">}</span>
+  <span class="s2">}</span>
+
+  <span class="s0">String _formatearFecha</span><span class="s2">(</span><span class="s0">DateTime</span><span class="s2">? </span><span class="s0">fecha</span><span class="s2">) {</span>
+    <span class="s3">return </span><span class="s0">fecha </span><span class="s2">!= </span><span class="s3">null </span><span class="s2">? </span><span class="s1">'</span><span class="s2">${</span><span class="s0">fecha</span><span class="s2">.</span><span class="s0">day</span><span class="s2">}</span><span class="s1">/</span><span class="s2">${</span><span class="s0">fecha</span><span class="s2">.</span><span class="s0">month</span><span class="s2">}</span><span class="s1">/</span><span class="s2">${</span><span class="s0">fecha</span><span class="s2">.</span><span class="s0">year</span><span class="s2">}</span><span class="s1">' </span><span class="s2">: </span><span class="s1">'No establecida'</span><span class="s2">;</span>
+  <span class="s2">}</span>
+
+  <span class="s4">// Método para seleccionar y agregar fotos</span>
+  <span class="s0">Future</span><span class="s2">&lt;</span><span class="s3">void</span><span class="s2">&gt; </span><span class="s0">_seleccionarFotos</span><span class="s2">() </span><span class="s0">async </span><span class="s2">{</span>
+    <span class="s3">try </span><span class="s2">{</span>
+      <span class="s0">FilePickerResult</span><span class="s2">? </span><span class="s0">result </span><span class="s2">= </span><span class="s0">await FilePicker</span><span class="s2">.</span><span class="s0">platform</span><span class="s2">.</span><span class="s0">pickFiles</span><span class="s2">(</span>
+        <span class="s0">type</span><span class="s2">: </span><span class="s0">FileType</span><span class="s2">.</span><span class="s0">image</span><span class="s2">,</span>
+        <span class="s0">allowMultiple</span><span class="s2">: </span><span class="s3">true</span><span class="s2">,</span>
+      <span class="s2">);</span>
+
+      <span class="s3">if </span><span class="s2">(</span><span class="s0">result </span><span class="s2">!= </span><span class="s3">null </span><span class="s2">&amp;&amp; </span><span class="s0">result</span><span class="s2">.</span><span class="s0">files</span><span class="s2">.</span><span class="s0">isNotEmpty</span><span class="s2">) {</span>
+        <span class="s4">// Obtener directorio de la aplicación para guardar fotos</span>
+        <span class="s3">final </span><span class="s0">appDir </span><span class="s2">= </span><span class="s0">await getApplicationDocumentsDirectory</span><span class="s2">();</span>
+        <span class="s3">final </span><span class="s0">dirPath </span><span class="s2">= </span><span class="s1">'</span><span class="s2">${</span><span class="s0">appDir</span><span class="s2">.</span><span class="s0">path</span><span class="s2">}</span><span class="s1">/fotos_maquinas'</span><span class="s2">;</span>
+
+        <span class="s4">// Crear directorio si no existe</span>
+        <span class="s3">final </span><span class="s0">dir </span><span class="s2">= </span><span class="s0">Directory</span><span class="s2">(</span><span class="s0">dirPath</span><span class="s2">);</span>
+        <span class="s3">if </span><span class="s2">(!</span><span class="s0">await dir</span><span class="s2">.</span><span class="s0">exists</span><span class="s2">()) {</span>
+          <span class="s0">await dir</span><span class="s2">.</span><span class="s0">create</span><span class="s2">(</span><span class="s0">recursive</span><span class="s2">: </span><span class="s3">true</span><span class="s2">);</span>
+        <span class="s2">}</span>
+
+        <span class="s4">// Generar ID único para este conjunto de fotos (basado en timestamp)</span>
+        <span class="s3">final </span><span class="s0">timestamp </span><span class="s2">= </span><span class="s0">DateTime</span><span class="s2">.</span><span class="s0">now</span><span class="s2">().</span><span class="s0">millisecondsSinceEpoch</span><span class="s2">.</span><span class="s0">toString</span><span class="s2">();</span>
+
+        <span class="s4">// Guardar cada imagen seleccionada</span>
+        <span class="s3">for </span><span class="s2">(</span><span class="s3">var </span><span class="s0">file </span><span class="s3">in </span><span class="s0">result</span><span class="s2">.</span><span class="s0">files</span><span class="s2">) {</span>
+          <span class="s3">if </span><span class="s2">(</span><span class="s0">file</span><span class="s2">.</span><span class="s0">path </span><span class="s2">!= </span><span class="s3">null</span><span class="s2">) {</span>
+            <span class="s3">final </span><span class="s0">sourceFile </span><span class="s2">= </span><span class="s0">File</span><span class="s2">(</span><span class="s0">file</span><span class="s2">.</span><span class="s0">path</span><span class="s2">!);</span>
+            <span class="s3">final </span><span class="s0">fileName </span><span class="s2">= </span><span class="s1">'</span><span class="s2">${</span><span class="s0">timestamp</span><span class="s2">}</span><span class="s1">_</span><span class="s2">${</span><span class="s0">path</span><span class="s2">.</span><span class="s0">basename</span><span class="s2">(</span><span class="s0">file</span><span class="s2">.</span><span class="s0">path</span><span class="s2">!)}</span><span class="s1">'</span><span class="s2">;</span>
+            <span class="s3">final </span><span class="s0">targetPath </span><span class="s2">= </span><span class="s0">path</span><span class="s2">.</span><span class="s0">join</span><span class="s2">(</span><span class="s0">dirPath</span><span class="s2">, </span><span class="s0">fileName</span><span class="s2">);</span>
+
+            <span class="s4">// Copiar archivo al directorio de la aplicación</span>
+            <span class="s0">await sourceFile</span><span class="s2">.</span><span class="s0">copy</span><span class="s2">(</span><span class="s0">targetPath</span><span class="s2">);</span>
+
+            <span class="s4">// Agregar ruta a la lista de fotos</span>
+            <span class="s0">setState</span><span class="s2">(() {</span>
+              <span class="s0">_fotos</span><span class="s2">.</span><span class="s0">add</span><span class="s2">(</span><span class="s0">targetPath</span><span class="s2">);</span>
+            <span class="s2">});</span>
+          <span class="s2">}</span>
+        <span class="s2">}</span>
+
+        <span class="s4">// Mostrar mensaje de éxito</span>
+        <span class="s0">ScaffoldMessenger</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">showSnackBar</span><span class="s2">(</span>
+          <span class="s0">SnackBar</span><span class="s2">(</span>
+            <span class="s0">content</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'</span><span class="s2">${</span><span class="s0">result</span><span class="s2">.</span><span class="s0">files</span><span class="s2">.</span><span class="s0">length</span><span class="s2">} </span><span class="s1">fotos agregadas'</span><span class="s2">),</span>
+            <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">,</span>
+          <span class="s2">),</span>
+        <span class="s2">);</span>
+      <span class="s2">}</span>
+    <span class="s2">} </span><span class="s3">catch </span><span class="s2">(</span><span class="s0">e</span><span class="s2">) {</span>
+      <span class="s0">print</span><span class="s2">(</span><span class="s1">'Error al seleccionar fotos: </span><span class="s2">$</span><span class="s0">e</span><span class="s1">'</span><span class="s2">);</span>
+      <span class="s0">ScaffoldMessenger</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">showSnackBar</span><span class="s2">(</span>
+        <span class="s0">SnackBar</span><span class="s2">(</span>
+          <span class="s0">content</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Error al seleccionar fotos: </span><span class="s2">$</span><span class="s0">e</span><span class="s1">'</span><span class="s2">),</span>
+          <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">_colorAlerta</span><span class="s2">,</span>
+        <span class="s2">),</span>
+      <span class="s2">);</span>
+    <span class="s2">}</span>
+  <span class="s2">}</span>
+
+  <span class="s4">// Eliminar una foto</span>
+  <span class="s3">void </span><span class="s0">_eliminarFoto</span><span class="s2">(</span><span class="s0">int index</span><span class="s2">) {</span>
+    <span class="s0">setState</span><span class="s2">(() {</span>
+      <span class="s3">final </span><span class="s0">fotoPath </span><span class="s2">= </span><span class="s0">_fotos</span><span class="s2">[</span><span class="s0">index</span><span class="s2">];</span>
+      <span class="s0">_fotos</span><span class="s2">.</span><span class="s0">removeAt</span><span class="s2">(</span><span class="s0">index</span><span class="s2">);</span>
+
+      <span class="s4">// Intentar eliminar el archivo físico (de manera asíncrona)</span>
+      <span class="s0">File</span><span class="s2">(</span><span class="s0">fotoPath</span><span class="s2">).</span><span class="s0">delete</span><span class="s2">().</span><span class="s0">catchError</span><span class="s2">((</span><span class="s0">e</span><span class="s2">) {</span>
+        <span class="s0">print</span><span class="s2">(</span><span class="s1">'Error al eliminar archivo: </span><span class="s2">$</span><span class="s0">e</span><span class="s1">'</span><span class="s2">);</span>
+      <span class="s2">});</span>
+    <span class="s2">});</span>
+  <span class="s2">}</span>
+
+  <span class="s4">// Ver una foto en pantalla completa</span>
+  <span class="s3">void </span><span class="s0">_verFoto</span><span class="s2">(</span><span class="s0">String fotoPath</span><span class="s2">) {</span>
+    <span class="s0">Navigator</span><span class="s2">.</span><span class="s0">push</span><span class="s2">(</span>
+      <span class="s0">context</span><span class="s2">,</span>
+      <span class="s0">MaterialPageRoute</span><span class="s2">(</span>
+        <span class="s0">builder</span><span class="s2">: (</span><span class="s0">context</span><span class="s2">) =&gt; </span><span class="s0">Scaffold</span><span class="s2">(</span>
+          <span class="s0">appBar</span><span class="s2">: </span><span class="s0">AppBar</span><span class="s2">(</span>
+            <span class="s0">title</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Visualizar Foto'</span><span class="s2">),</span>
+            <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">,</span>
+          <span class="s2">),</span>
+          <span class="s0">body</span><span class="s2">: </span><span class="s0">Center</span><span class="s2">(</span>
+            <span class="s0">child</span><span class="s2">: </span><span class="s0">InteractiveViewer</span><span class="s2">(</span>
+              <span class="s0">panEnabled</span><span class="s2">: </span><span class="s3">true</span><span class="s2">,</span>
+              <span class="s0">boundaryMargin</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">all</span><span class="s2">(</span><span class="s5">20</span><span class="s2">),</span>
+              <span class="s0">minScale</span><span class="s2">: </span><span class="s5">0.5</span><span class="s2">,</span>
+              <span class="s0">maxScale</span><span class="s2">: </span><span class="s5">4</span><span class="s2">,</span>
+              <span class="s0">child</span><span class="s2">: </span><span class="s0">Image</span><span class="s2">.</span><span class="s0">file</span><span class="s2">(</span>
+                <span class="s0">File</span><span class="s2">(</span><span class="s0">fotoPath</span><span class="s2">),</span>
+                <span class="s0">fit</span><span class="s2">: </span><span class="s0">BoxFit</span><span class="s2">.</span><span class="s0">contain</span><span class="s2">,</span>
+                <span class="s0">errorBuilder</span><span class="s2">: (</span><span class="s0">context</span><span class="s2">, </span><span class="s0">error</span><span class="s2">, </span><span class="s0">stackTrace</span><span class="s2">) {</span>
+                  <span class="s3">return </span><span class="s0">Column</span><span class="s2">(</span>
+                    <span class="s0">mainAxisAlignment</span><span class="s2">: </span><span class="s0">MainAxisAlignment</span><span class="s2">.</span><span class="s0">center</span><span class="s2">,</span>
+                    <span class="s0">children</span><span class="s2">: [</span>
+                      <span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">broken_image</span><span class="s2">, </span><span class="s0">size</span><span class="s2">: </span><span class="s5">80</span><span class="s2">, </span><span class="s0">color</span><span class="s2">: </span><span class="s0">_colorTextoSecundario</span><span class="s2">),</span>
+                      <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">16</span><span class="s2">),</span>
+                      <span class="s0">Text</span><span class="s2">(</span><span class="s1">'No se pudo cargar la imagen'</span><span class="s2">, </span><span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span><span class="s0">color</span><span class="s2">: </span><span class="s0">_colorTextoSecundario</span><span class="s2">)),</span>
+                    <span class="s2">],</span>
+                  <span class="s2">);</span>
+                <span class="s2">},</span>
+              <span class="s2">),</span>
+            <span class="s2">),</span>
+          <span class="s2">),</span>
+        <span class="s2">),</span>
+      <span class="s2">),</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+
+  <span class="s3">void </span><span class="s0">_guardarMaquina</span><span class="s2">() </span><span class="s0">async </span><span class="s2">{</span>
+    <span class="s3">if </span><span class="s2">(</span><span class="s0">_formKey</span><span class="s2">.</span><span class="s0">currentState</span><span class="s2">!.</span><span class="s0">validate</span><span class="s2">()) {</span>
+      <span class="s0">setState</span><span class="s2">(() { </span><span class="s0">_cargando </span><span class="s2">= </span><span class="s3">true</span><span class="s2">; });</span>
+
+      <span class="s4">// Preparar la lista de correas para guardar</span>
+      <span class="s0">List</span><span class="s2">&lt;</span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt;&gt; </span><span class="s0">correasParaGuardar </span><span class="s2">= </span><span class="s0">_correas</span><span class="s2">.</span><span class="s0">map</span><span class="s2">((</span><span class="s0">correa</span><span class="s2">) {</span>
+        <span class="s3">final </span><span class="s0">TextEditingController</span><span class="s2">? </span><span class="s0">controller </span><span class="s2">= </span><span class="s0">correa</span><span class="s2">[</span><span class="s1">'controller'</span><span class="s2">] </span><span class="s0">as TextEditingController</span><span class="s2">?;</span>
+        <span class="s3">final </span><span class="s0">String modelo </span><span class="s2">= </span><span class="s0">controller</span><span class="s2">?.</span><span class="s0">text </span><span class="s2">?? </span><span class="s0">correa</span><span class="s2">[</span><span class="s1">'modelo'</span><span class="s2">] ?? </span><span class="s1">''</span><span class="s2">;</span>
+
+        <span class="s3">return </span><span class="s2">{</span>
+          <span class="s1">'modelo'</span><span class="s2">: </span><span class="s0">modelo</span><span class="s2">,</span>
+          <span class="s1">'fecha'</span><span class="s2">: </span><span class="s0">correa</span><span class="s2">[</span><span class="s1">'fecha'</span><span class="s2">]?.</span><span class="s0">toIso8601String</span><span class="s2">(),</span>
+        <span class="s2">};</span>
+      <span class="s2">}).</span><span class="s0">toList</span><span class="s2">();</span>
+
+      <span class="s3">final </span><span class="s0">nuevaMaquina </span><span class="s2">= {</span>
+        <span class="s1">'id'</span><span class="s2">: </span><span class="s0">_idController</span><span class="s2">.</span><span class="s0">text</span><span class="s2">.</span><span class="s0">isEmpty </span><span class="s2">? </span><span class="s0">DateTime</span><span class="s2">.</span><span class="s0">now</span><span class="s2">().</span><span class="s0">millisecondsSinceEpoch</span><span class="s2">.</span><span class="s0">toString</span><span class="s2">().</span><span class="s0">substring</span><span class="s2">(</span><span class="s5">6</span><span class="s2">) : </span><span class="s0">_idController</span><span class="s2">.</span><span class="s0">text</span><span class="s2">,</span>
+        <span class="s1">'placa'</span><span class="s2">: </span><span class="s0">_placaController</span><span class="s2">.</span><span class="s0">text</span><span class="s2">.</span><span class="s0">toUpperCase</span><span class="s2">(),</span>
+        <span class="s1">'modelo'</span><span class="s2">: </span><span class="s0">_modeloController</span><span class="s2">.</span><span class="s0">text</span><span class="s2">,</span>
+        <span class="s1">'capacidad'</span><span class="s2">: </span><span class="s0">int</span><span class="s2">.</span><span class="s0">tryParse</span><span class="s2">(</span><span class="s0">_capacidadController</span><span class="s2">.</span><span class="s0">text</span><span class="s2">) ?? </span><span class="s5">0</span><span class="s2">,</span>
+        <span class="s1">'kilometraje'</span><span class="s2">: </span><span class="s0">int</span><span class="s2">.</span><span class="s0">tryParse</span><span class="s2">(</span><span class="s0">_kilometrajeController</span><span class="s2">.</span><span class="s0">text</span><span class="s2">) ?? </span><span class="s5">0</span><span class="s2">,</span>
+        <span class="s1">'bin'</span><span class="s2">: </span><span class="s0">_binController</span><span class="s2">.</span><span class="s0">text</span><span class="s2">,</span>
+        <span class="s1">'estado'</span><span class="s2">: </span><span class="s0">_estado</span><span class="s2">,</span>
+        <span class="s1">'modeloFiltroAceite'</span><span class="s2">: </span><span class="s0">_modeloFiltroAceiteController</span><span class="s2">.</span><span class="s0">text</span><span class="s2">,</span>
+        <span class="s1">'modeloFiltroAire'</span><span class="s2">: </span><span class="s0">_modeloFiltroAireController</span><span class="s2">.</span><span class="s0">text</span><span class="s2">,</span>
+        <span class="s1">'modeloFiltroPetroleo'</span><span class="s2">: </span><span class="s0">_modeloFiltroPetroleoController</span><span class="s2">.</span><span class="s0">text</span><span class="s2">,</span>
+        <span class="s1">'modeloDecantador'</span><span class="s2">: </span><span class="s0">_modeloDecantadorController</span><span class="s2">.</span><span class="s0">text</span><span class="s2">,</span>
+        <span class="s1">'fechaRevisionTecnica'</span><span class="s2">: </span><span class="s0">_fechaRevisionTecnica</span><span class="s2">?.</span><span class="s0">toIso8601String</span><span class="s2">(),</span>
+        <span class="s1">'fechaCambioFiltroAceite'</span><span class="s2">: </span><span class="s0">_fechaCambioFiltroAceite</span><span class="s2">?.</span><span class="s0">toIso8601String</span><span class="s2">(),</span>
+        <span class="s1">'fechaCambioFiltroAire'</span><span class="s2">: </span><span class="s0">_fechaCambioFiltroAire</span><span class="s2">?.</span><span class="s0">toIso8601String</span><span class="s2">(),</span>
+        <span class="s1">'fechaCambioFiltroPetroleo'</span><span class="s2">: </span><span class="s0">_fechaCambioFiltroPetroleo</span><span class="s2">?.</span><span class="s0">toIso8601String</span><span class="s2">(),</span>
+        <span class="s1">'fechaRevisionDecantador'</span><span class="s2">: </span><span class="s0">_fechaRevisionDecantador</span><span class="s2">?.</span><span class="s0">toIso8601String</span><span class="s2">(),</span>
+        <span class="s4">// Nueva estructura de correas</span>
+        <span class="s1">'correas'</span><span class="s2">: </span><span class="s0">correasParaGuardar</span><span class="s2">,</span>
+        <span class="s4">// Comentario</span>
+        <span class="s1">'comentario'</span><span class="s2">: </span><span class="s0">_comentarioController</span><span class="s2">.</span><span class="s0">text</span><span class="s2">,</span>
+        <span class="s4">// Fotos adjuntas</span>
+        <span class="s1">'fotos'</span><span class="s2">: </span><span class="s0">_fotos</span><span class="s2">,</span>
+      <span class="s2">};</span>
+
+      <span class="s0">await _guardarEnStorage</span><span class="s2">(</span><span class="s0">nuevaMaquina</span><span class="s2">);</span>
+      <span class="s0">widget</span><span class="s2">.</span><span class="s0">onSave</span><span class="s2">(</span><span class="s0">nuevaMaquina</span><span class="s2">);</span>
+
+      <span class="s0">setState</span><span class="s2">(() { </span><span class="s0">_cargando </span><span class="s2">= </span><span class="s3">false</span><span class="s2">; });</span>
+      <span class="s0">ScaffoldMessenger</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">showSnackBar</span><span class="s2">(</span><span class="s0">SnackBar</span><span class="s2">(</span>
+          <span class="s0">content</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Máquina guardada exitosamente'</span><span class="s2">),</span>
+          <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">_colorPrimario</span>
+      <span class="s2">));</span>
+      <span class="s0">Navigator</span><span class="s2">.</span><span class="s0">pop</span><span class="s2">(</span><span class="s0">context</span><span class="s2">);</span>
+    <span class="s2">}</span>
+  <span class="s2">}</span>
+
+  <span class="s0">Future</span><span class="s2">&lt;</span><span class="s3">void</span><span class="s2">&gt; </span><span class="s0">_guardarEnStorage</span><span class="s2">(</span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt; </span><span class="s0">nuevaMaquina</span><span class="s2">) </span><span class="s0">async </span><span class="s2">{</span>
+    <span class="s3">try </span><span class="s2">{</span>
+      <span class="s3">final </span><span class="s0">file </span><span class="s2">= </span><span class="s0">await _localFile</span><span class="s2">;</span>
+      <span class="s0">List</span><span class="s2">&lt;</span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt;&gt; </span><span class="s0">maquinas </span><span class="s2">= [];</span>
+
+      <span class="s3">if </span><span class="s2">(</span><span class="s0">await file</span><span class="s2">.</span><span class="s0">exists</span><span class="s2">()) {</span>
+        <span class="s3">final </span><span class="s0">contenido </span><span class="s2">= </span><span class="s0">await file</span><span class="s2">.</span><span class="s0">readAsString</span><span class="s2">();</span>
+        <span class="s0">maquinas </span><span class="s2">= </span><span class="s0">jsonDecode</span><span class="s2">(</span><span class="s0">contenido</span><span class="s2">).</span><span class="s0">cast</span><span class="s2">&lt;</span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt;&gt;();</span>
+
+        <span class="s3">if </span><span class="s2">(</span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente </span><span class="s2">!= </span><span class="s3">null</span><span class="s2">) {</span>
+          <span class="s3">final </span><span class="s0">index </span><span class="s2">= </span><span class="s0">maquinas</span><span class="s2">.</span><span class="s0">indexWhere</span><span class="s2">((</span><span class="s0">m</span><span class="s2">) =&gt; </span><span class="s0">m</span><span class="s2">[</span><span class="s1">'id'</span><span class="s2">] == </span><span class="s0">nuevaMaquina</span><span class="s2">[</span><span class="s1">'id'</span><span class="s2">]);</span>
+          <span class="s3">if </span><span class="s2">(</span><span class="s0">index </span><span class="s2">!= -</span><span class="s5">1</span><span class="s2">) {</span>
+            <span class="s0">maquinas</span><span class="s2">[</span><span class="s0">index</span><span class="s2">] = </span><span class="s0">nuevaMaquina</span><span class="s2">;</span>
+          <span class="s2">} </span><span class="s3">else </span><span class="s2">{</span>
+            <span class="s0">maquinas</span><span class="s2">.</span><span class="s0">add</span><span class="s2">(</span><span class="s0">nuevaMaquina</span><span class="s2">);</span>
+          <span class="s2">}</span>
+        <span class="s2">} </span><span class="s3">else </span><span class="s2">{</span>
+          <span class="s0">maquinas</span><span class="s2">.</span><span class="s0">add</span><span class="s2">(</span><span class="s0">nuevaMaquina</span><span class="s2">);</span>
+        <span class="s2">}</span>
+      <span class="s2">} </span><span class="s3">else </span><span class="s2">{</span>
+        <span class="s0">maquinas</span><span class="s2">.</span><span class="s0">add</span><span class="s2">(</span><span class="s0">nuevaMaquina</span><span class="s2">);</span>
+      <span class="s2">}</span>
+
+      <span class="s0">await file</span><span class="s2">.</span><span class="s0">writeAsString</span><span class="s2">(</span><span class="s0">jsonEncode</span><span class="s2">(</span><span class="s0">maquinas</span><span class="s2">));</span>
+    <span class="s2">} </span><span class="s3">catch </span><span class="s2">(</span><span class="s0">e</span><span class="s2">) {</span>
+      <span class="s0">ScaffoldMessenger</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">showSnackBar</span><span class="s2">(</span><span class="s0">SnackBar</span><span class="s2">(</span>
+          <span class="s0">content</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Error al guardar: </span><span class="s2">$</span><span class="s0">e</span><span class="s1">'</span><span class="s2">),</span>
+          <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">_colorAlerta</span>
+      <span class="s2">));</span>
+    <span class="s2">}</span>
+  <span class="s2">}</span>
+
+  <span class="s0">Future</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">&gt; </span><span class="s0">get _localPath async </span><span class="s2">{</span>
+    <span class="s3">final </span><span class="s0">directory </span><span class="s2">= </span><span class="s0">await getApplicationDocumentsDirectory</span><span class="s2">();</span>
+    <span class="s3">return </span><span class="s0">directory</span><span class="s2">.</span><span class="s0">path</span><span class="s2">;</span>
+  <span class="s2">}</span>
+
+  <span class="s0">Future</span><span class="s2">&lt;</span><span class="s0">File</span><span class="s2">&gt; </span><span class="s0">get _localFile async </span><span class="s2">{</span>
+    <span class="s3">final </span><span class="s0">path </span><span class="s2">= </span><span class="s0">await _localPath</span><span class="s2">;</span>
+    <span class="s3">return </span><span class="s0">File</span><span class="s2">(</span><span class="s1">'</span><span class="s2">$</span><span class="s0">path</span><span class="s1">/maquinas.json'</span><span class="s2">);</span>
+  <span class="s2">}</span>
+
+  <span class="s0">@override</span>
+  <span class="s0">Widget build</span><span class="s2">(</span><span class="s0">BuildContext context</span><span class="s2">) {</span>
+    <span class="s3">final </span><span class="s0">esEdicion </span><span class="s2">= </span><span class="s0">widget</span><span class="s2">.</span><span class="s0">maquinaExistente </span><span class="s2">!= </span><span class="s3">null</span><span class="s2">;</span>
+    <span class="s3">final </span><span class="s0">titulo </span><span class="s2">= </span><span class="s0">esEdicion </span><span class="s2">? </span><span class="s1">'Editar Máquina' </span><span class="s2">: </span><span class="s1">'Agregar Máquina'</span><span class="s2">;</span>
+
+    <span class="s3">return </span><span class="s0">Scaffold</span><span class="s2">(</span>
+      <span class="s0">appBar</span><span class="s2">: </span><span class="s0">AppBar</span><span class="s2">(</span>
+        <span class="s0">title</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s0">titulo</span><span class="s2">),</span>
+        <span class="s0">centerTitle</span><span class="s2">: </span><span class="s3">true</span><span class="s2">,</span>
+        <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">,</span>
+        <span class="s0">foregroundColor</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">white</span><span class="s2">,</span>
+      <span class="s2">),</span>
+      <span class="s0">body</span><span class="s2">: </span><span class="s0">_cargando</span>
+          <span class="s2">? </span><span class="s0">Center</span><span class="s2">(</span><span class="s0">child</span><span class="s2">: </span><span class="s0">CircularProgressIndicator</span><span class="s2">(</span><span class="s0">color</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">))</span>
+          <span class="s2">: </span><span class="s0">SingleChildScrollView</span><span class="s2">(</span>
+        <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">all</span><span class="s2">(</span><span class="s5">16.0</span><span class="s2">),</span>
+        <span class="s0">child</span><span class="s2">: </span><span class="s0">Form</span><span class="s2">(</span>
+          <span class="s0">key</span><span class="s2">: </span><span class="s0">_formKey</span><span class="s2">,</span>
+          <span class="s0">child</span><span class="s2">: </span><span class="s0">Column</span><span class="s2">(</span>
+            <span class="s0">crossAxisAlignment</span><span class="s2">: </span><span class="s0">CrossAxisAlignment</span><span class="s2">.</span><span class="s0">stretch</span><span class="s2">,</span>
+            <span class="s0">children</span><span class="s2">: [</span>
+              <span class="s0">_buildIdField</span><span class="s2">(</span><span class="s0">esEdicion</span><span class="s2">),</span>
+              <span class="s0">_buildPlacaField</span><span class="s2">(),</span>
+              <span class="s0">_buildModeloField</span><span class="s2">(),</span>
+              <span class="s0">_buildCapacidadField</span><span class="s2">(),</span>
+              <span class="s0">_buildKilometrajeField</span><span class="s2">(),</span>
+              <span class="s0">_buildBinField</span><span class="s2">(),</span>
+              <span class="s0">_buildDateCard</span><span class="s2">(</span><span class="s1">'Revisión Técnica'</span><span class="s2">, </span><span class="s0">_fechaRevisionTecnica</span><span class="s2">, (</span><span class="s0">fecha</span><span class="s2">) =&gt; </span><span class="s0">setState</span><span class="s2">(() =&gt; </span><span class="s0">_fechaRevisionTecnica </span><span class="s2">= </span><span class="s0">fecha</span><span class="s2">)),</span>
+              <span class="s0">_buildFiltersCard</span><span class="s2">(),</span>
+              <span class="s0">_buildDecantadorCard</span><span class="s2">(),</span>
+              <span class="s0">_buildCorreasCard</span><span class="s2">(),</span>
+              <span class="s0">_buildComentariosCard</span><span class="s2">(),</span>
+              <span class="s0">_buildStatusDropdown</span><span class="s2">(),</span>
+              <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">40</span><span class="s2">),</span>
+              <span class="s0">_buildSaveButton</span><span class="s2">(</span><span class="s0">esEdicion</span><span class="s2">),</span>
+            <span class="s2">],</span>
+          <span class="s2">),</span>
+        <span class="s2">),</span>
+      <span class="s2">),</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+
+  <span class="s0">Widget _buildIdField</span><span class="s2">(</span><span class="s0">bool esEdicion</span><span class="s2">) {</span>
+    <span class="s3">return </span><span class="s0">Padding</span><span class="s2">(</span>
+      <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">only</span><span class="s2">(</span><span class="s0">bottom</span><span class="s2">: </span><span class="s5">20</span><span class="s2">),</span>
+      <span class="s0">child</span><span class="s2">: </span><span class="s0">TextFormField</span><span class="s2">(</span>
+        <span class="s0">controller</span><span class="s2">: </span><span class="s0">_idController</span><span class="s2">,</span>
+        <span class="s0">decoration</span><span class="s2">: </span><span class="s0">InputDecoration</span><span class="s2">(</span>
+          <span class="s0">labelText</span><span class="s2">: </span><span class="s1">'ID'</span><span class="s2">,</span>
+          <span class="s0">helperText</span><span class="s2">: </span><span class="s0">_idController</span><span class="s2">.</span><span class="s0">text</span><span class="s2">.</span><span class="s0">isEmpty </span><span class="s2">? </span><span class="s1">'Se generará automáticamente si se deja en blanco' </span><span class="s2">: </span><span class="s3">null</span><span class="s2">,</span>
+          <span class="s0">prefixIcon</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">tag</span><span class="s2">),</span>
+          <span class="s0">border</span><span class="s2">: </span><span class="s0">OutlineInputBorder</span><span class="s2">(</span><span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">)),</span>
+          <span class="s0">focusedBorder</span><span class="s2">: </span><span class="s0">OutlineInputBorder</span><span class="s2">(</span>
+            <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">),</span>
+            <span class="s0">borderSide</span><span class="s2">: </span><span class="s0">BorderSide</span><span class="s2">(</span><span class="s0">color</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">, </span><span class="s0">width</span><span class="s2">: </span><span class="s5">2</span><span class="s2">),</span>
+          <span class="s2">),</span>
+        <span class="s2">),</span>
+        <span class="s0">enabled</span><span class="s2">: !</span><span class="s0">esEdicion</span><span class="s2">,</span>
+      <span class="s2">),</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+
+  <span class="s0">Widget _buildPlacaField</span><span class="s2">() {</span>
+    <span class="s3">return </span><span class="s0">Padding</span><span class="s2">(</span>
+      <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">only</span><span class="s2">(</span><span class="s0">bottom</span><span class="s2">: </span><span class="s5">20</span><span class="s2">),</span>
+      <span class="s0">child</span><span class="s2">: </span><span class="s0">TextFormField</span><span class="s2">(</span>
+        <span class="s0">controller</span><span class="s2">: </span><span class="s0">_placaController</span><span class="s2">,</span>
+        <span class="s0">decoration</span><span class="s2">: </span><span class="s0">InputDecoration</span><span class="s2">(</span>
+          <span class="s0">labelText</span><span class="s2">: </span><span class="s1">'Placa * (máx. 6 caracteres)'</span><span class="s2">,</span>
+          <span class="s0">prefixIcon</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">credit_card</span><span class="s2">),</span>
+          <span class="s0">border</span><span class="s2">: </span><span class="s0">OutlineInputBorder</span><span class="s2">(</span><span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">)),</span>
+          <span class="s0">focusedBorder</span><span class="s2">: </span><span class="s0">OutlineInputBorder</span><span class="s2">(</span>
+            <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">),</span>
+            <span class="s0">borderSide</span><span class="s2">: </span><span class="s0">BorderSide</span><span class="s2">(</span><span class="s0">color</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">, </span><span class="s0">width</span><span class="s2">: </span><span class="s5">2</span><span class="s2">),</span>
+          <span class="s2">),</span>
+        <span class="s2">),</span>
+        <span class="s0">maxLength</span><span class="s2">: </span><span class="s5">6</span><span class="s2">,</span>
+        <span class="s0">textCapitalization</span><span class="s2">: </span><span class="s0">TextCapitalization</span><span class="s2">.</span><span class="s0">characters</span><span class="s2">,</span>
+        <span class="s0">style</span><span class="s2">: </span><span class="s3">const </span><span class="s0">TextStyle</span><span class="s2">(</span><span class="s0">fontWeight</span><span class="s2">: </span><span class="s0">FontWeight</span><span class="s2">.</span><span class="s0">bold</span><span class="s2">),</span>
+        <span class="s0">inputFormatters</span><span class="s2">: [</span>
+          <span class="s0">UpperCaseTextFormatter</span><span class="s2">(),</span>
+        <span class="s2">],</span>
+        <span class="s0">validator</span><span class="s2">: (</span><span class="s0">value</span><span class="s2">) {</span>
+          <span class="s3">if </span><span class="s2">(</span><span class="s0">value </span><span class="s2">== </span><span class="s3">null </span><span class="s2">|| </span><span class="s0">value</span><span class="s2">.</span><span class="s0">isEmpty</span><span class="s2">) {</span>
+            <span class="s3">return </span><span class="s1">'La placa es obligatoria'</span><span class="s2">;</span>
+          <span class="s2">}</span>
+          <span class="s3">return null</span><span class="s2">;</span>
+        <span class="s2">},</span>
+      <span class="s2">),</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+
+  <span class="s0">Widget _buildModeloField</span><span class="s2">() {</span>
+    <span class="s3">return </span><span class="s0">Padding</span><span class="s2">(</span>
+      <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">only</span><span class="s2">(</span><span class="s0">bottom</span><span class="s2">: </span><span class="s5">20</span><span class="s2">),</span>
+      <span class="s0">child</span><span class="s2">: </span><span class="s0">TextFormField</span><span class="s2">(</span>
+        <span class="s0">controller</span><span class="s2">: </span><span class="s0">_modeloController</span><span class="s2">,</span>
+        <span class="s0">decoration</span><span class="s2">: </span><span class="s0">InputDecoration</span><span class="s2">(</span>
+          <span class="s0">labelText</span><span class="s2">: </span><span class="s1">'Modelo *'</span><span class="s2">,</span>
+          <span class="s0">prefixIcon</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">directions_bus</span><span class="s2">),</span>
+          <span class="s0">border</span><span class="s2">: </span><span class="s0">OutlineInputBorder</span><span class="s2">(</span><span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">)),</span>
+          <span class="s0">focusedBorder</span><span class="s2">: </span><span class="s0">OutlineInputBorder</span><span class="s2">(</span>
+            <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">),</span>
+            <span class="s0">borderSide</span><span class="s2">: </span><span class="s0">BorderSide</span><span class="s2">(</span><span class="s0">color</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">, </span><span class="s0">width</span><span class="s2">: </span><span class="s5">2</span><span class="s2">),</span>
+          <span class="s2">),</span>
+        <span class="s2">),</span>
+        <span class="s0">validator</span><span class="s2">: (</span><span class="s0">value</span><span class="s2">) {</span>
+          <span class="s3">if </span><span class="s2">(</span><span class="s0">value </span><span class="s2">== </span><span class="s3">null </span><span class="s2">|| </span><span class="s0">value</span><span class="s2">.</span><span class="s0">isEmpty</span><span class="s2">) {</span>
+            <span class="s3">return </span><span class="s1">'El modelo es obligatorio'</span><span class="s2">;</span>
+          <span class="s2">}</span>
+          <span class="s3">return null</span><span class="s2">;</span>
+        <span class="s2">},</span>
+      <span class="s2">),</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+
+  <span class="s0">Widget _buildCapacidadField</span><span class="s2">() {</span>
+    <span class="s3">return </span><span class="s0">Padding</span><span class="s2">(</span>
+      <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">only</span><span class="s2">(</span><span class="s0">bottom</span><span class="s2">: </span><span class="s5">20</span><span class="s2">),</span>
+      <span class="s0">child</span><span class="s2">: </span><span class="s0">TextFormField</span><span class="s2">(</span>
+        <span class="s0">controller</span><span class="s2">: </span><span class="s0">_capacidadController</span><span class="s2">,</span>
+        <span class="s0">decoration</span><span class="s2">: </span><span class="s0">InputDecoration</span><span class="s2">(</span>
+          <span class="s0">labelText</span><span class="s2">: </span><span class="s1">'Capacidad'</span><span class="s2">,</span>
+          <span class="s0">prefixIcon</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">people</span><span class="s2">),</span>
+          <span class="s0">border</span><span class="s2">: </span><span class="s0">OutlineInputBorder</span><span class="s2">(</span><span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">)),</span>
+          <span class="s0">focusedBorder</span><span class="s2">: </span><span class="s0">OutlineInputBorder</span><span class="s2">(</span>
+            <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">),</span>
+            <span class="s0">borderSide</span><span class="s2">: </span><span class="s0">BorderSide</span><span class="s2">(</span><span class="s0">color</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">, </span><span class="s0">width</span><span class="s2">: </span><span class="s5">2</span><span class="s2">),</span>
+          <span class="s2">),</span>
+        <span class="s2">),</span>
+        <span class="s0">keyboardType</span><span class="s2">: </span><span class="s0">TextInputType</span><span class="s2">.</span><span class="s0">number</span><span class="s2">,</span>
+        <span class="s0">validator</span><span class="s2">: (</span><span class="s0">value</span><span class="s2">) {</span>
+          <span class="s3">if </span><span class="s2">(</span><span class="s0">value </span><span class="s2">!= </span><span class="s3">null </span><span class="s2">&amp;&amp; </span><span class="s0">value</span><span class="s2">.</span><span class="s0">isNotEmpty</span><span class="s2">) {</span>
+            <span class="s3">final </span><span class="s0">numero </span><span class="s2">= </span><span class="s0">int</span><span class="s2">.</span><span class="s0">tryParse</span><span class="s2">(</span><span class="s0">value</span><span class="s2">);</span>
+            <span class="s3">if </span><span class="s2">(</span><span class="s0">numero </span><span class="s2">== </span><span class="s3">null </span><span class="s2">|| </span><span class="s0">numero </span><span class="s2">&lt;= </span><span class="s5">0</span><span class="s2">) {</span>
+              <span class="s3">return </span><span class="s1">'Ingrese un número válido mayor a 0'</span><span class="s2">;</span>
+            <span class="s2">}</span>
+          <span class="s2">}</span>
+          <span class="s3">return null</span><span class="s2">;</span>
+        <span class="s2">},</span>
+      <span class="s2">),</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+
+  <span class="s0">Widget _buildKilometrajeField</span><span class="s2">() {</span>
+    <span class="s3">return </span><span class="s0">Padding</span><span class="s2">(</span>
+      <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">only</span><span class="s2">(</span><span class="s0">bottom</span><span class="s2">: </span><span class="s5">20</span><span class="s2">),</span>
+      <span class="s0">child</span><span class="s2">: </span><span class="s0">TextFormField</span><span class="s2">(</span>
+        <span class="s0">controller</span><span class="s2">: </span><span class="s0">_kilometrajeController</span><span class="s2">,</span>
+        <span class="s0">decoration</span><span class="s2">: </span><span class="s0">InputDecoration</span><span class="s2">(</span>
+          <span class="s0">labelText</span><span class="s2">: </span><span class="s1">'Kilometraje'</span><span class="s2">,</span>
+          <span class="s0">prefixIcon</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">speed</span><span class="s2">),</span>
+          <span class="s0">border</span><span class="s2">: </span><span class="s0">OutlineInputBorder</span><span class="s2">(</span><span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">)),</span>
+          <span class="s0">focusedBorder</span><span class="s2">: </span><span class="s0">OutlineInputBorder</span><span class="s2">(</span>
+            <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">),</span>
+            <span class="s0">borderSide</span><span class="s2">: </span><span class="s0">BorderSide</span><span class="s2">(</span><span class="s0">color</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">, </span><span class="s0">width</span><span class="s2">: </span><span class="s5">2</span><span class="s2">),</span>
+          <span class="s2">),</span>
+        <span class="s2">),</span>
+        <span class="s0">keyboardType</span><span class="s2">: </span><span class="s0">TextInputType</span><span class="s2">.</span><span class="s0">number</span><span class="s2">,</span>
+      <span class="s2">),</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+
+  <span class="s0">Widget _buildBinField</span><span class="s2">() {</span>
+    <span class="s3">return </span><span class="s0">Padding</span><span class="s2">(</span>
+      <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">only</span><span class="s2">(</span><span class="s0">bottom</span><span class="s2">: </span><span class="s5">20</span><span class="s2">),</span>
+      <span class="s0">child</span><span class="s2">: </span><span class="s0">TextFormField</span><span class="s2">(</span>
+        <span class="s0">controller</span><span class="s2">: </span><span class="s0">_binController</span><span class="s2">,</span>
+        <span class="s0">decoration</span><span class="s2">: </span><span class="s0">InputDecoration</span><span class="s2">(</span>
+          <span class="s0">labelText</span><span class="s2">: </span><span class="s1">'Número de BIN'</span><span class="s2">,</span>
+          <span class="s0">prefixIcon</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">numbers</span><span class="s2">),</span>
+          <span class="s0">border</span><span class="s2">: </span><span class="s0">OutlineInputBorder</span><span class="s2">(</span><span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">)),</span>
+          <span class="s0">focusedBorder</span><span class="s2">: </span><span class="s0">OutlineInputBorder</span><span class="s2">(</span>
+            <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">),</span>
+            <span class="s0">borderSide</span><span class="s2">: </span><span class="s0">BorderSide</span><span class="s2">(</span><span class="s0">color</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">, </span><span class="s0">width</span><span class="s2">: </span><span class="s5">2</span><span class="s2">),</span>
+          <span class="s2">),</span>
+        <span class="s2">),</span>
+      <span class="s2">),</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+
+  <span class="s0">Widget _buildDateCard</span><span class="s2">(</span><span class="s0">String title</span><span class="s2">, </span><span class="s0">DateTime</span><span class="s2">? </span><span class="s0">date</span><span class="s2">, </span><span class="s0">Function</span><span class="s2">(</span><span class="s0">DateTime</span><span class="s2">) </span><span class="s0">onDateSelected</span><span class="s2">) {</span>
+    <span class="s3">return </span><span class="s0">Card</span><span class="s2">(</span>
+      <span class="s0">elevation</span><span class="s2">: </span><span class="s5">3</span><span class="s2">,</span>
+      <span class="s0">margin</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">only</span><span class="s2">(</span><span class="s0">bottom</span><span class="s2">: </span><span class="s5">20</span><span class="s2">),</span>
+      <span class="s0">shape</span><span class="s2">: </span><span class="s0">RoundedRectangleBorder</span><span class="s2">(</span><span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">)),</span>
+      <span class="s0">child</span><span class="s2">: </span><span class="s0">Padding</span><span class="s2">(</span>
+        <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">all</span><span class="s2">(</span><span class="s5">16.0</span><span class="s2">),</span>
+        <span class="s0">child</span><span class="s2">: </span><span class="s0">Row</span><span class="s2">(</span>
+          <span class="s0">children</span><span class="s2">: [</span>
+            <span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">safety_check</span><span class="s2">, </span><span class="s0">color</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">),</span>
+            <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">width</span><span class="s2">: </span><span class="s5">10</span><span class="s2">),</span>
+            <span class="s0">Text</span><span class="s2">(</span><span class="s0">title</span><span class="s2">, </span><span class="s0">style</span><span class="s2">: </span><span class="s3">const </span><span class="s0">TextStyle</span><span class="s2">(</span><span class="s0">fontSize</span><span class="s2">: </span><span class="s5">18</span><span class="s2">, </span><span class="s0">fontWeight</span><span class="s2">: </span><span class="s0">FontWeight</span><span class="s2">.</span><span class="s0">bold</span><span class="s2">)),</span>
+            <span class="s3">const </span><span class="s0">Spacer</span><span class="s2">(),</span>
+            <span class="s0">TextButton</span><span class="s2">.</span><span class="s0">icon</span><span class="s2">(</span>
+              <span class="s0">onPressed</span><span class="s2">: () =&gt; </span><span class="s0">_seleccionarFecha</span><span class="s2">(</span><span class="s0">context</span><span class="s2">, </span><span class="s0">date</span><span class="s2">, </span><span class="s0">onDateSelected</span><span class="s2">),</span>
+              <span class="s0">icon</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">calendar_today</span><span class="s2">, </span><span class="s0">size</span><span class="s2">: </span><span class="s5">18</span><span class="s2">),</span>
+              <span class="s0">label</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s0">_formatearFecha</span><span class="s2">(</span><span class="s0">date</span><span class="s2">)),</span>
+              <span class="s0">style</span><span class="s2">: </span><span class="s0">TextButton</span><span class="s2">.</span><span class="s0">styleFrom</span><span class="s2">(</span><span class="s0">foregroundColor</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">),</span>
+            <span class="s2">),</span>
+          <span class="s2">],</span>
+        <span class="s2">),</span>
+      <span class="s2">),</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+
+  <span class="s0">Widget _buildFiltersCard</span><span class="s2">() {</span>
+    <span class="s3">return </span><span class="s0">Card</span><span class="s2">(</span>
+      <span class="s0">elevation</span><span class="s2">: </span><span class="s5">3</span><span class="s2">,</span>
+      <span class="s0">margin</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">only</span><span class="s2">(</span><span class="s0">bottom</span><span class="s2">: </span><span class="s5">20</span><span class="s2">),</span>
+      <span class="s0">shape</span><span class="s2">: </span><span class="s0">RoundedRectangleBorder</span><span class="s2">(</span><span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">)),</span>
+      <span class="s0">child</span><span class="s2">: </span><span class="s0">Padding</span><span class="s2">(</span>
+        <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">all</span><span class="s2">(</span><span class="s5">16.0</span><span class="s2">),</span>
+        <span class="s0">child</span><span class="s2">: </span><span class="s0">Column</span><span class="s2">(</span>
+            <span class="s0">crossAxisAlignment</span><span class="s2">: </span><span class="s0">CrossAxisAlignment</span><span class="s2">.</span><span class="s0">start</span><span class="s2">,</span>
+            <span class="s0">children</span><span class="s2">: [</span>
+              <span class="s0">Row</span><span class="s2">(</span>
+                  <span class="s0">children</span><span class="s2">: [</span>
+                    <span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">filter_alt</span><span class="s2">, </span><span class="s0">color</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">),</span>
+                    <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">width</span><span class="s2">: </span><span class="s5">10</span><span class="s2">),</span>
+                    <span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Mantenimiento de Filtros'</span><span class="s2">, </span><span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span><span class="s0">fontSize</span><span class="s2">: </span><span class="s5">18</span><span class="s2">, </span><span class="s0">fontWeight</span><span class="s2">: </span><span class="s0">FontWeight</span><span class="s2">.</span><span class="s0">bold</span><span class="s2">)),</span>
+                  <span class="s2">]</span>
+              <span class="s2">),</span>
+              <span class="s3">const </span><span class="s0">Divider</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">24</span><span class="s2">),</span>
+
+              <span class="s0">_buildFilterRow</span><span class="s2">(</span><span class="s1">'Filtro de Aceite'</span><span class="s2">, </span><span class="s0">_modeloFiltroAceiteController</span><span class="s2">, </span><span class="s0">_fechaCambioFiltroAceite</span><span class="s2">, (</span><span class="s0">fecha</span><span class="s2">) =&gt; </span><span class="s0">setState</span><span class="s2">(() =&gt; </span><span class="s0">_fechaCambioFiltroAceite </span><span class="s2">= </span><span class="s0">fecha</span><span class="s2">)),</span>
+              <span class="s3">const </span><span class="s0">Divider</span><span class="s2">(),</span>
+              <span class="s0">_buildFilterRow</span><span class="s2">(</span><span class="s1">'Filtro de Aire'</span><span class="s2">, </span><span class="s0">_modeloFiltroAireController</span><span class="s2">, </span><span class="s0">_fechaCambioFiltroAire</span><span class="s2">, (</span><span class="s0">fecha</span><span class="s2">) =&gt; </span><span class="s0">setState</span><span class="s2">(() =&gt; </span><span class="s0">_fechaCambioFiltroAire </span><span class="s2">= </span><span class="s0">fecha</span><span class="s2">)),</span>
+              <span class="s3">const </span><span class="s0">Divider</span><span class="s2">(),</span>
+              <span class="s0">_buildFilterRow</span><span class="s2">(</span><span class="s1">'Filtro de Petróleo'</span><span class="s2">, </span><span class="s0">_modeloFiltroPetroleoController</span><span class="s2">, </span><span class="s0">_fechaCambioFiltroPetroleo</span><span class="s2">, (</span><span class="s0">fecha</span><span class="s2">) =&gt; </span><span class="s0">setState</span><span class="s2">(() =&gt; </span><span class="s0">_fechaCambioFiltroPetroleo </span><span class="s2">= </span><span class="s0">fecha</span><span class="s2">)),</span>
+            <span class="s2">]</span>
+        <span class="s2">),</span>
+      <span class="s2">),</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+
+  <span class="s0">Widget _buildFilterRow</span><span class="s2">(</span><span class="s0">String title</span><span class="s2">, </span><span class="s0">TextEditingController controller</span><span class="s2">, </span><span class="s0">DateTime</span><span class="s2">? </span><span class="s0">date</span><span class="s2">, </span><span class="s0">Function</span><span class="s2">(</span><span class="s0">DateTime</span><span class="s2">) </span><span class="s0">onDateSelected</span><span class="s2">) {</span>
+    <span class="s3">return </span><span class="s0">Row</span><span class="s2">(</span>
+      <span class="s0">children</span><span class="s2">: [</span>
+        <span class="s0">Expanded</span><span class="s2">(</span>
+            <span class="s0">child</span><span class="s2">: </span><span class="s0">Column</span><span class="s2">(</span>
+                <span class="s0">crossAxisAlignment</span><span class="s2">: </span><span class="s0">CrossAxisAlignment</span><span class="s2">.</span><span class="s0">start</span><span class="s2">,</span>
+                <span class="s0">children</span><span class="s2">: [</span>
+                  <span class="s0">Text</span><span class="s2">(</span><span class="s0">title</span><span class="s2">, </span><span class="s0">style</span><span class="s2">: </span><span class="s3">const </span><span class="s0">TextStyle</span><span class="s2">(</span><span class="s0">fontWeight</span><span class="s2">: </span><span class="s0">FontWeight</span><span class="s2">.</span><span class="s0">bold</span><span class="s2">)),</span>
+                  <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">4</span><span class="s2">),</span>
+                  <span class="s0">TextFormField</span><span class="s2">(</span>
+                      <span class="s0">controller</span><span class="s2">: </span><span class="s0">controller</span><span class="s2">,</span>
+                      <span class="s0">decoration</span><span class="s2">: </span><span class="s3">const </span><span class="s0">InputDecoration</span><span class="s2">(</span><span class="s0">labelText</span><span class="s2">: </span><span class="s1">'Modelo/Referencia'</span><span class="s2">, </span><span class="s0">isDense</span><span class="s2">: </span><span class="s3">true</span><span class="s2">)</span>
+                  <span class="s2">)</span>
+                <span class="s2">]</span>
+            <span class="s2">)</span>
+        <span class="s2">),</span>
+        <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">width</span><span class="s2">: </span><span class="s5">16</span><span class="s2">),</span>
+        <span class="s0">Column</span><span class="s2">(</span>
+            <span class="s0">crossAxisAlignment</span><span class="s2">: </span><span class="s0">CrossAxisAlignment</span><span class="s2">.</span><span class="s0">end</span><span class="s2">,</span>
+            <span class="s0">children</span><span class="s2">: [</span>
+              <span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Último cambio'</span><span class="s2">, </span><span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span><span class="s0">fontSize</span><span class="s2">: </span><span class="s5">12</span><span class="s2">)),</span>
+              <span class="s0">TextButton</span><span class="s2">.</span><span class="s0">icon</span><span class="s2">(</span>
+                <span class="s0">onPressed</span><span class="s2">: () =&gt; </span><span class="s0">_seleccionarFecha</span><span class="s2">(</span><span class="s0">context</span><span class="s2">, </span><span class="s0">date</span><span class="s2">, </span><span class="s0">onDateSelected</span><span class="s2">),</span>
+                <span class="s0">icon</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">calendar_today</span><span class="s2">, </span><span class="s0">size</span><span class="s2">: </span><span class="s5">16</span><span class="s2">),</span>
+                <span class="s0">label</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s0">_formatearFecha</span><span class="s2">(</span><span class="s0">date</span><span class="s2">)),</span>
+                <span class="s0">style</span><span class="s2">: </span><span class="s0">TextButton</span><span class="s2">.</span><span class="s0">styleFrom</span><span class="s2">(</span><span class="s0">foregroundColor</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">),</span>
+              <span class="s2">),</span>
+            <span class="s2">]</span>
+        <span class="s2">),</span>
+      <span class="s2">],</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+
+  <span class="s0">Widget _buildDecantadorCard</span><span class="s2">() {</span>
+    <span class="s3">return </span><span class="s0">Card</span><span class="s2">(</span>
+      <span class="s0">elevation</span><span class="s2">: </span><span class="s5">3</span><span class="s2">,</span>
+      <span class="s0">margin</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">only</span><span class="s2">(</span><span class="s0">bottom</span><span class="s2">: </span><span class="s5">20</span><span class="s2">),</span>
+      <span class="s0">shape</span><span class="s2">: </span><span class="s0">RoundedRectangleBorder</span><span class="s2">(</span><span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">)),</span>
+      <span class="s0">child</span><span class="s2">: </span><span class="s0">Padding</span><span class="s2">(</span>
+        <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">all</span><span class="s2">(</span><span class="s5">16.0</span><span class="s2">),</span>
+        <span class="s0">child</span><span class="s2">: </span><span class="s0">Column</span><span class="s2">(</span>
+            <span class="s0">crossAxisAlignment</span><span class="s2">: </span><span class="s0">CrossAxisAlignment</span><span class="s2">.</span><span class="s0">start</span><span class="s2">,</span>
+            <span class="s0">children</span><span class="s2">: [</span>
+              <span class="s0">Row</span><span class="s2">(</span>
+                  <span class="s0">children</span><span class="s2">: [</span>
+                    <span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">water_drop</span><span class="s2">, </span><span class="s0">color</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">),</span>
+                    <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">width</span><span class="s2">: </span><span class="s5">10</span><span class="s2">),</span>
+                    <span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Decantador'</span><span class="s2">, </span><span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span><span class="s0">fontSize</span><span class="s2">: </span><span class="s5">18</span><span class="s2">, </span><span class="s0">fontWeight</span><span class="s2">: </span><span class="s0">FontWeight</span><span class="s2">.</span><span class="s0">bold</span><span class="s2">)),</span>
+                  <span class="s2">]</span>
+              <span class="s2">),</span>
+              <span class="s3">const </span><span class="s0">Divider</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">24</span><span class="s2">),</span>
+
+              <span class="s0">_buildFilterRow</span><span class="s2">(</span><span class="s1">'Decantador'</span><span class="s2">, </span><span class="s0">_modeloDecantadorController</span><span class="s2">, </span><span class="s0">_fechaRevisionDecantador</span><span class="s2">, (</span><span class="s0">fecha</span><span class="s2">) =&gt; </span><span class="s0">setState</span><span class="s2">(() =&gt; </span><span class="s0">_fechaRevisionDecantador </span><span class="s2">= </span><span class="s0">fecha</span><span class="s2">)),</span>
+            <span class="s2">]</span>
+        <span class="s2">),</span>
+      <span class="s2">),</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+
+  <span class="s0">Widget _buildCorreasCard</span><span class="s2">() {</span>
+    <span class="s3">return </span><span class="s0">Card</span><span class="s2">(</span>
+      <span class="s0">elevation</span><span class="s2">: </span><span class="s5">3</span><span class="s2">,</span>
+      <span class="s0">margin</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">only</span><span class="s2">(</span><span class="s0">bottom</span><span class="s2">: </span><span class="s5">20</span><span class="s2">),</span>
+      <span class="s0">shape</span><span class="s2">: </span><span class="s0">RoundedRectangleBorder</span><span class="s2">(</span>
+        <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">),</span>
+      <span class="s2">),</span>
+      <span class="s0">child</span><span class="s2">: </span><span class="s0">Padding</span><span class="s2">(</span>
+        <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">all</span><span class="s2">(</span><span class="s5">16.0</span><span class="s2">),</span>
+        <span class="s0">child</span><span class="s2">: </span><span class="s0">Column</span><span class="s2">(</span>
+          <span class="s0">crossAxisAlignment</span><span class="s2">: </span><span class="s0">CrossAxisAlignment</span><span class="s2">.</span><span class="s0">start</span><span class="s2">,</span>
+          <span class="s0">children</span><span class="s2">: [</span>
+            <span class="s0">Row</span><span class="s2">(</span>
+              <span class="s0">children</span><span class="s2">: [</span>
+                <span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">settings_input_component</span><span class="s2">, </span><span class="s0">color</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">),</span>
+                <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">width</span><span class="s2">: </span><span class="s5">10</span><span class="s2">),</span>
+                <span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span>
+                  <span class="s1">'Correas'</span><span class="s2">,</span>
+                  <span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span>
+                    <span class="s0">fontSize</span><span class="s2">: </span><span class="s5">18</span><span class="s2">,</span>
+                    <span class="s0">fontWeight</span><span class="s2">: </span><span class="s0">FontWeight</span><span class="s2">.</span><span class="s0">bold</span><span class="s2">,</span>
+                  <span class="s2">),</span>
+                <span class="s2">),</span>
+                <span class="s3">const </span><span class="s0">Spacer</span><span class="s2">(),</span>
+                <span class="s3">if </span><span class="s2">(</span><span class="s0">_correas</span><span class="s2">.</span><span class="s0">length </span><span class="s2">&lt; </span><span class="s5">6</span><span class="s2">)</span>
+                  <span class="s0">TextButton</span><span class="s2">.</span><span class="s0">icon</span><span class="s2">(</span>
+                    <span class="s0">onPressed</span><span class="s2">: </span><span class="s0">_agregarCorrea</span><span class="s2">,</span>
+                    <span class="s0">icon</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">add</span><span class="s2">),</span>
+                    <span class="s0">label</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Agregar Correa'</span><span class="s2">),</span>
+                    <span class="s0">style</span><span class="s2">: </span><span class="s0">TextButton</span><span class="s2">.</span><span class="s0">styleFrom</span><span class="s2">(</span><span class="s0">foregroundColor</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">),</span>
+                  <span class="s2">),</span>
+              <span class="s2">],</span>
+            <span class="s2">),</span>
+            <span class="s3">const </span><span class="s0">Divider</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">24</span><span class="s2">),</span>
+
+            <span class="s4">// Mostrar lista de correas dinámicamente</span>
+            <span class="s0">..._correas</span><span class="s2">.</span><span class="s0">asMap</span><span class="s2">().</span><span class="s0">entries</span><span class="s2">.</span><span class="s0">map</span><span class="s2">((</span><span class="s0">entry</span><span class="s2">) {</span>
+              <span class="s3">final </span><span class="s0">int index </span><span class="s2">= </span><span class="s0">entry</span><span class="s2">.</span><span class="s0">key</span><span class="s2">;</span>
+              <span class="s3">final </span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt; </span><span class="s0">correa </span><span class="s2">= </span><span class="s0">entry</span><span class="s2">.</span><span class="s0">value</span><span class="s2">;</span>
+
+              <span class="s3">return </span><span class="s0">Container</span><span class="s2">(</span>
+                <span class="s0">margin</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">only</span><span class="s2">(</span><span class="s0">bottom</span><span class="s2">: </span><span class="s5">16</span><span class="s2">),</span>
+                <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">all</span><span class="s2">(</span><span class="s5">12</span><span class="s2">),</span>
+                <span class="s0">decoration</span><span class="s2">: </span><span class="s0">BoxDecoration</span><span class="s2">(</span>
+                  <span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">grey</span><span class="s2">.</span><span class="s0">shade100</span><span class="s2">,</span>
+                  <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">8</span><span class="s2">),</span>
+                  <span class="s0">border</span><span class="s2">: </span><span class="s0">Border</span><span class="s2">.</span><span class="s0">all</span><span class="s2">(</span><span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">grey</span><span class="s2">.</span><span class="s0">shade300</span><span class="s2">),</span>
+                <span class="s2">),</span>
+                <span class="s0">child</span><span class="s2">: </span><span class="s0">Column</span><span class="s2">(</span>
+                  <span class="s0">crossAxisAlignment</span><span class="s2">: </span><span class="s0">CrossAxisAlignment</span><span class="s2">.</span><span class="s0">start</span><span class="s2">,</span>
+                  <span class="s0">children</span><span class="s2">: [</span>
+                    <span class="s0">Row</span><span class="s2">(</span>
+                      <span class="s0">children</span><span class="s2">: [</span>
+                        <span class="s0">Text</span><span class="s2">(</span>
+                          <span class="s1">'Correa </span><span class="s2">${</span><span class="s0">index </span><span class="s2">+ </span><span class="s5">1</span><span class="s2">}</span><span class="s1">'</span><span class="s2">,</span>
+                          <span class="s0">style</span><span class="s2">: </span><span class="s3">const </span><span class="s0">TextStyle</span><span class="s2">(</span>
+                            <span class="s0">fontWeight</span><span class="s2">: </span><span class="s0">FontWeight</span><span class="s2">.</span><span class="s0">bold</span><span class="s2">,</span>
+                            <span class="s0">fontSize</span><span class="s2">: </span><span class="s5">16</span><span class="s2">,</span>
+                          <span class="s2">),</span>
+                        <span class="s2">),</span>
+                        <span class="s3">const </span><span class="s0">Spacer</span><span class="s2">(),</span>
+                        <span class="s3">if </span><span class="s2">(</span><span class="s0">_correas</span><span class="s2">.</span><span class="s0">length </span><span class="s2">&gt; </span><span class="s5">1</span><span class="s2">)</span>
+                          <span class="s0">IconButton</span><span class="s2">(</span>
+                            <span class="s0">icon</span><span class="s2">: </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">delete</span><span class="s2">, </span><span class="s0">color</span><span class="s2">: </span><span class="s0">_colorAlerta</span><span class="s2">),</span>
+                            <span class="s0">tooltip</span><span class="s2">: </span><span class="s1">'Eliminar correa'</span><span class="s2">,</span>
+                            <span class="s0">onPressed</span><span class="s2">: () =&gt; </span><span class="s0">_eliminarCorrea</span><span class="s2">(</span><span class="s0">index</span><span class="s2">),</span>
+                          <span class="s2">),</span>
+                      <span class="s2">],</span>
+                    <span class="s2">),</span>
+                    <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">12</span><span class="s2">),</span>
+                    <span class="s0">Row</span><span class="s2">(</span>
+                      <span class="s0">children</span><span class="s2">: [</span>
+                        <span class="s0">Expanded</span><span class="s2">(</span>
+                          <span class="s0">child</span><span class="s2">: </span><span class="s0">TextFormField</span><span class="s2">(</span>
+                            <span class="s0">controller</span><span class="s2">: </span><span class="s0">correa</span><span class="s2">[</span><span class="s1">'controller'</span><span class="s2">] </span><span class="s0">as TextEditingController</span><span class="s2">,</span>
+                            <span class="s0">decoration</span><span class="s2">: </span><span class="s3">const </span><span class="s0">InputDecoration</span><span class="s2">(</span>
+                              <span class="s0">labelText</span><span class="s2">: </span><span class="s1">'Modelo/Referencia'</span><span class="s2">,</span>
+                              <span class="s0">isDense</span><span class="s2">: </span><span class="s3">true</span><span class="s2">,</span>
+                            <span class="s2">),</span>
+                            <span class="s0">onChanged</span><span class="s2">: (</span><span class="s0">value</span><span class="s2">) {</span>
+                              <span class="s0">correa</span><span class="s2">[</span><span class="s1">'modelo'</span><span class="s2">] = </span><span class="s0">value</span><span class="s2">;</span>
+                            <span class="s2">},</span>
+                          <span class="s2">),</span>
+                        <span class="s2">),</span>
+                        <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">width</span><span class="s2">: </span><span class="s5">16</span><span class="s2">),</span>
+                        <span class="s0">Column</span><span class="s2">(</span>
+                          <span class="s0">crossAxisAlignment</span><span class="s2">: </span><span class="s0">CrossAxisAlignment</span><span class="s2">.</span><span class="s0">end</span><span class="s2">,</span>
+                          <span class="s0">children</span><span class="s2">: [</span>
+                            <span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span>
+                              <span class="s1">'Última revisión'</span><span class="s2">,</span>
+                              <span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span><span class="s0">fontSize</span><span class="s2">: </span><span class="s5">12</span><span class="s2">),</span>
+                            <span class="s2">),</span>
+                            <span class="s0">TextButton</span><span class="s2">.</span><span class="s0">icon</span><span class="s2">(</span>
+                              <span class="s0">onPressed</span><span class="s2">: () =&gt; </span><span class="s0">_seleccionarFecha</span><span class="s2">(</span>
+                                <span class="s0">context</span><span class="s2">,</span>
+                                <span class="s0">correa</span><span class="s2">[</span><span class="s1">'fecha'</span><span class="s2">] != </span><span class="s3">null </span><span class="s2">? </span><span class="s0">DateTime</span><span class="s2">.</span><span class="s0">parse</span><span class="s2">(</span><span class="s0">correa</span><span class="s2">[</span><span class="s1">'fecha'</span><span class="s2">]) : </span><span class="s3">null</span><span class="s2">,</span>
+                                    <span class="s2">(</span><span class="s0">fecha</span><span class="s2">) =&gt; </span><span class="s0">setState</span><span class="s2">(() =&gt; </span><span class="s0">correa</span><span class="s2">[</span><span class="s1">'fecha'</span><span class="s2">] = </span><span class="s0">fecha</span><span class="s2">.</span><span class="s0">toIso8601String</span><span class="s2">()),</span>
+                              <span class="s2">),</span>
+                              <span class="s0">icon</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">calendar_today</span><span class="s2">, </span><span class="s0">size</span><span class="s2">: </span><span class="s5">16</span><span class="s2">),</span>
+                              <span class="s0">label</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s0">_formatearFecha</span><span class="s2">(</span>
+                                  <span class="s0">correa</span><span class="s2">[</span><span class="s1">'fecha'</span><span class="s2">] != </span><span class="s3">null </span><span class="s2">? </span><span class="s0">DateTime</span><span class="s2">.</span><span class="s0">parse</span><span class="s2">(</span><span class="s0">correa</span><span class="s2">[</span><span class="s1">'fecha'</span><span class="s2">]) : </span><span class="s3">null</span>
+                              <span class="s2">)),</span>
+                              <span class="s0">style</span><span class="s2">: </span><span class="s0">TextButton</span><span class="s2">.</span><span class="s0">styleFrom</span><span class="s2">(</span><span class="s0">foregroundColor</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">),</span>
+                            <span class="s2">),</span>
+                          <span class="s2">],</span>
+                        <span class="s2">),</span>
+                      <span class="s2">],</span>
+                    <span class="s2">),</span>
+                  <span class="s2">],</span>
+                <span class="s2">),</span>
+              <span class="s2">);</span>
+            <span class="s2">}).</span><span class="s0">toList</span><span class="s2">(),</span>
+          <span class="s2">],</span>
+        <span class="s2">),</span>
+      <span class="s2">),</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+
+  <span class="s4">// Nuevo método para el card de comentarios con adjunto de fotos</span>
+  <span class="s0">Widget _buildComentariosCard</span><span class="s2">() {</span>
+    <span class="s3">return </span><span class="s0">Card</span><span class="s2">(</span>
+      <span class="s0">elevation</span><span class="s2">: </span><span class="s5">3</span><span class="s2">,</span>
+      <span class="s0">margin</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">only</span><span class="s2">(</span><span class="s0">bottom</span><span class="s2">: </span><span class="s5">20</span><span class="s2">),</span>
+      <span class="s0">shape</span><span class="s2">: </span><span class="s0">RoundedRectangleBorder</span><span class="s2">(</span>
+        <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">),</span>
+      <span class="s2">),</span>
+      <span class="s0">child</span><span class="s2">: </span><span class="s0">Padding</span><span class="s2">(</span>
+        <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">all</span><span class="s2">(</span><span class="s5">16.0</span><span class="s2">),</span>
+        <span class="s0">child</span><span class="s2">: </span><span class="s0">Column</span><span class="s2">(</span>
+          <span class="s0">crossAxisAlignment</span><span class="s2">: </span><span class="s0">CrossAxisAlignment</span><span class="s2">.</span><span class="s0">start</span><span class="s2">,</span>
+          <span class="s0">children</span><span class="s2">: [</span>
+            <span class="s0">Row</span><span class="s2">(</span>
+              <span class="s0">children</span><span class="s2">: [</span>
+                <span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">comment</span><span class="s2">, </span><span class="s0">color</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">),</span>
+                <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">width</span><span class="s2">: </span><span class="s5">10</span><span class="s2">),</span>
+                <span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span>
+                  <span class="s1">'Comentarios'</span><span class="s2">,</span>
+                  <span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span>
+                    <span class="s0">fontSize</span><span class="s2">: </span><span class="s5">18</span><span class="s2">,</span>
+                    <span class="s0">fontWeight</span><span class="s2">: </span><span class="s0">FontWeight</span><span class="s2">.</span><span class="s0">bold</span><span class="s2">,</span>
+                  <span class="s2">),</span>
+                <span class="s2">),</span>
+                <span class="s3">const </span><span class="s0">Spacer</span><span class="s2">(),</span>
+                <span class="s0">TextButton</span><span class="s2">.</span><span class="s0">icon</span><span class="s2">(</span>
+                  <span class="s0">onPressed</span><span class="s2">: </span><span class="s0">_seleccionarFotos</span><span class="s2">,</span>
+                  <span class="s0">icon</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">photo_camera</span><span class="s2">),</span>
+                  <span class="s0">label</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Adjuntar Fotos'</span><span class="s2">),</span>
+                  <span class="s0">style</span><span class="s2">: </span><span class="s0">TextButton</span><span class="s2">.</span><span class="s0">styleFrom</span><span class="s2">(</span><span class="s0">foregroundColor</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">),</span>
+                <span class="s2">),</span>
+              <span class="s2">],</span>
+            <span class="s2">),</span>
+            <span class="s3">const </span><span class="s0">Divider</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">24</span><span class="s2">),</span>
+
+            <span class="s4">// Campo de texto para comentarios</span>
+            <span class="s0">TextFormField</span><span class="s2">(</span>
+              <span class="s0">controller</span><span class="s2">: </span><span class="s0">_comentarioController</span><span class="s2">,</span>
+              <span class="s0">decoration</span><span class="s2">: </span><span class="s3">const </span><span class="s0">InputDecoration</span><span class="s2">(</span>
+                <span class="s0">hintText</span><span class="s2">: </span><span class="s1">'Ingrese comentarios sobre la máquina'</span><span class="s2">,</span>
+                <span class="s0">border</span><span class="s2">: </span><span class="s0">OutlineInputBorder</span><span class="s2">(),</span>
+              <span class="s2">),</span>
+              <span class="s0">maxLines</span><span class="s2">: </span><span class="s5">5</span><span class="s2">,</span>
+            <span class="s2">),</span>
+
+            <span class="s4">// Mostrar fotos adjuntas</span>
+            <span class="s3">if </span><span class="s2">(</span><span class="s0">_fotos</span><span class="s2">.</span><span class="s0">isNotEmpty</span><span class="s2">) </span><span class="s0">...</span><span class="s2">[</span>
+              <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">16</span><span class="s2">),</span>
+              <span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span>
+                <span class="s1">'Fotos adjuntas:'</span><span class="s2">,</span>
+                <span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span>
+                  <span class="s0">fontWeight</span><span class="s2">: </span><span class="s0">FontWeight</span><span class="s2">.</span><span class="s0">bold</span><span class="s2">,</span>
+                  <span class="s0">fontSize</span><span class="s2">: </span><span class="s5">16</span><span class="s2">,</span>
+                <span class="s2">),</span>
+              <span class="s2">),</span>
+              <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">8</span><span class="s2">),</span>
+
+              <span class="s4">// Grid de miniaturas</span>
+              <span class="s0">GridView</span><span class="s2">.</span><span class="s0">builder</span><span class="s2">(</span>
+                <span class="s0">shrinkWrap</span><span class="s2">: </span><span class="s3">true</span><span class="s2">,</span>
+                <span class="s0">physics</span><span class="s2">: </span><span class="s3">const </span><span class="s0">NeverScrollableScrollPhysics</span><span class="s2">(),</span>
+                <span class="s0">gridDelegate</span><span class="s2">: </span><span class="s3">const </span><span class="s0">SliverGridDelegateWithFixedCrossAxisCount</span><span class="s2">(</span>
+                  <span class="s0">crossAxisCount</span><span class="s2">: </span><span class="s5">3</span><span class="s2">,</span>
+                  <span class="s0">crossAxisSpacing</span><span class="s2">: </span><span class="s5">8</span><span class="s2">,</span>
+                  <span class="s0">mainAxisSpacing</span><span class="s2">: </span><span class="s5">8</span><span class="s2">,</span>
+                  <span class="s0">childAspectRatio</span><span class="s2">: </span><span class="s5">1</span><span class="s2">,</span>
+                <span class="s2">),</span>
+                <span class="s0">itemCount</span><span class="s2">: </span><span class="s0">_fotos</span><span class="s2">.</span><span class="s0">length</span><span class="s2">,</span>
+                <span class="s0">itemBuilder</span><span class="s2">: (</span><span class="s0">context</span><span class="s2">, </span><span class="s0">index</span><span class="s2">) {</span>
+                  <span class="s3">return </span><span class="s0">Stack</span><span class="s2">(</span>
+                    <span class="s0">children</span><span class="s2">: [</span>
+                      <span class="s4">// Miniatura de la imagen</span>
+                      <span class="s0">InkWell</span><span class="s2">(</span>
+                        <span class="s0">onTap</span><span class="s2">: () =&gt; </span><span class="s0">_verFoto</span><span class="s2">(</span><span class="s0">_fotos</span><span class="s2">[</span><span class="s0">index</span><span class="s2">]),</span>
+                        <span class="s0">child</span><span class="s2">: </span><span class="s0">Container</span><span class="s2">(</span>
+                          <span class="s0">decoration</span><span class="s2">: </span><span class="s0">BoxDecoration</span><span class="s2">(</span>
+                            <span class="s0">border</span><span class="s2">: </span><span class="s0">Border</span><span class="s2">.</span><span class="s0">all</span><span class="s2">(</span><span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">grey</span><span class="s2">.</span><span class="s0">shade300</span><span class="s2">),</span>
+                            <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">8</span><span class="s2">),</span>
+                          <span class="s2">),</span>
+                          <span class="s0">child</span><span class="s2">: </span><span class="s0">ClipRRect</span><span class="s2">(</span>
+                            <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">8</span><span class="s2">),</span>
+                            <span class="s0">child</span><span class="s2">: </span><span class="s0">Image</span><span class="s2">.</span><span class="s0">file</span><span class="s2">(</span>
+                              <span class="s0">File</span><span class="s2">(</span><span class="s0">_fotos</span><span class="s2">[</span><span class="s0">index</span><span class="s2">]),</span>
+                              <span class="s0">fit</span><span class="s2">: </span><span class="s0">BoxFit</span><span class="s2">.</span><span class="s0">cover</span><span class="s2">,</span>
+                              <span class="s0">errorBuilder</span><span class="s2">: (</span><span class="s0">context</span><span class="s2">, </span><span class="s0">error</span><span class="s2">, </span><span class="s0">stackTrace</span><span class="s2">) {</span>
+                                <span class="s3">return </span><span class="s0">Container</span><span class="s2">(</span>
+                                  <span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">grey</span><span class="s2">.</span><span class="s0">shade200</span><span class="s2">,</span>
+                                  <span class="s0">child</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">broken_image</span><span class="s2">),</span>
+                                <span class="s2">);</span>
+                              <span class="s2">},</span>
+                            <span class="s2">),</span>
+                          <span class="s2">),</span>
+                        <span class="s2">),</span>
+                      <span class="s2">),</span>
+
+                      <span class="s4">// Botón para eliminar</span>
+                      <span class="s0">Positioned</span><span class="s2">(</span>
+                        <span class="s0">top</span><span class="s2">: </span><span class="s5">0</span><span class="s2">,</span>
+                        <span class="s0">right</span><span class="s2">: </span><span class="s5">0</span><span class="s2">,</span>
+                        <span class="s0">child</span><span class="s2">: </span><span class="s0">InkWell</span><span class="s2">(</span>
+                          <span class="s0">onTap</span><span class="s2">: () =&gt; </span><span class="s0">_eliminarFoto</span><span class="s2">(</span><span class="s0">index</span><span class="s2">),</span>
+                          <span class="s0">child</span><span class="s2">: </span><span class="s0">Container</span><span class="s2">(</span>
+                            <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">all</span><span class="s2">(</span><span class="s5">4</span><span class="s2">),</span>
+                            <span class="s0">decoration</span><span class="s2">: </span><span class="s0">BoxDecoration</span><span class="s2">(</span>
+                              <span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">black</span><span class="s2">.</span><span class="s0">withOpacity</span><span class="s2">(</span><span class="s5">0.5</span><span class="s2">),</span>
+                              <span class="s0">shape</span><span class="s2">: </span><span class="s0">BoxShape</span><span class="s2">.</span><span class="s0">circle</span><span class="s2">,</span>
+                            <span class="s2">),</span>
+                            <span class="s0">child</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span>
+                              <span class="s0">Icons</span><span class="s2">.</span><span class="s0">close</span><span class="s2">,</span>
+                              <span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">white</span><span class="s2">,</span>
+                              <span class="s0">size</span><span class="s2">: </span><span class="s5">16</span><span class="s2">,</span>
+                            <span class="s2">),</span>
+                          <span class="s2">),</span>
+                        <span class="s2">),</span>
+                      <span class="s2">),</span>
+                    <span class="s2">],</span>
+                  <span class="s2">);</span>
+                <span class="s2">},</span>
+              <span class="s2">),</span>
+            <span class="s2">],</span>
+          <span class="s2">],</span>
+        <span class="s2">),</span>
+      <span class="s2">),</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+
+  <span class="s0">Widget _buildStatusDropdown</span><span class="s2">() {</span>
+    <span class="s3">return </span><span class="s0">DropdownButtonFormField</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">&gt;(</span>
+      <span class="s0">value</span><span class="s2">: </span><span class="s0">_estado</span><span class="s2">,</span>
+      <span class="s0">decoration</span><span class="s2">: </span><span class="s0">InputDecoration</span><span class="s2">(</span>
+          <span class="s0">labelText</span><span class="s2">: </span><span class="s1">'Estado'</span><span class="s2">,</span>
+          <span class="s0">prefixIcon</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">health_and_safety</span><span class="s2">),</span>
+          <span class="s0">border</span><span class="s2">: </span><span class="s0">OutlineInputBorder</span><span class="s2">(</span><span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">))</span>
+      <span class="s2">),</span>
+      <span class="s0">items</span><span class="s2">: </span><span class="s3">const </span><span class="s2">[</span>
+        <span class="s0">DropdownMenuItem</span><span class="s2">(</span><span class="s0">value</span><span class="s2">: </span><span class="s1">'Activo'</span><span class="s2">, </span><span class="s0">child</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Activo'</span><span class="s2">)),</span>
+        <span class="s0">DropdownMenuItem</span><span class="s2">(</span><span class="s0">value</span><span class="s2">: </span><span class="s1">'En mantenimiento'</span><span class="s2">, </span><span class="s0">child</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'En mantenimiento'</span><span class="s2">)),</span>
+        <span class="s0">DropdownMenuItem</span><span class="s2">(</span><span class="s0">value</span><span class="s2">: </span><span class="s1">'Fuera de servicio'</span><span class="s2">, </span><span class="s0">child</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Fuera de servicio'</span><span class="s2">)),</span>
+      <span class="s2">],</span>
+      <span class="s0">onChanged</span><span class="s2">: (</span><span class="s0">value</span><span class="s2">) {</span>
+        <span class="s3">if </span><span class="s2">(</span><span class="s0">value </span><span class="s2">!= </span><span class="s3">null</span><span class="s2">) {</span>
+          <span class="s0">setState</span><span class="s2">(() { </span><span class="s0">_estado </span><span class="s2">= </span><span class="s0">value</span><span class="s2">; });</span>
+        <span class="s2">}</span>
+      <span class="s2">},</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+
+  <span class="s0">Widget _buildSaveButton</span><span class="s2">(</span><span class="s0">bool esEdicion</span><span class="s2">) {</span>
+    <span class="s3">return </span><span class="s0">SizedBox</span><span class="s2">(</span>
+      <span class="s0">height</span><span class="s2">: </span><span class="s5">50</span><span class="s2">,</span>
+      <span class="s0">child</span><span class="s2">: </span><span class="s0">ElevatedButton</span><span class="s2">.</span><span class="s0">icon</span><span class="s2">(</span>
+        <span class="s0">onPressed</span><span class="s2">: </span><span class="s0">_guardarMaquina</span><span class="s2">,</span>
+        <span class="s0">style</span><span class="s2">: </span><span class="s0">ElevatedButton</span><span class="s2">.</span><span class="s0">styleFrom</span><span class="s2">(</span>
+            <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">_colorPrimario</span><span class="s2">,</span>
+            <span class="s0">foregroundColor</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">white</span><span class="s2">,</span>
+            <span class="s0">shape</span><span class="s2">: </span><span class="s0">RoundedRectangleBorder</span><span class="s2">(</span><span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">))</span>
+        <span class="s2">),</span>
+        <span class="s0">icon</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">save</span><span class="s2">),</span>
+        <span class="s0">label</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span>
+            <span class="s0">esEdicion </span><span class="s2">? </span><span class="s1">'Actualizar' </span><span class="s2">: </span><span class="s1">'Guardar'</span><span class="s2">,</span>
+            <span class="s0">style</span><span class="s2">: </span><span class="s3">const </span><span class="s0">TextStyle</span><span class="s2">(</span><span class="s0">fontSize</span><span class="s2">: </span><span class="s5">16</span><span class="s2">, </span><span class="s0">fontWeight</span><span class="s2">: </span><span class="s0">FontWeight</span><span class="s2">.</span><span class="s0">bold</span><span class="s2">)</span>
+        <span class="s2">),</span>
+      <span class="s2">),</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+<span class="s2">}</span>
+
+<span class="s4">// Formateador de texto para convertir a mayúsculas</span>
+<span class="s3">class </span><span class="s0">UpperCaseTextFormatter </span><span class="s3">extends </span><span class="s0">TextInputFormatter </span><span class="s2">{</span>
+  <span class="s0">@override</span>
+  <span class="s0">TextEditingValue formatEditUpdate</span><span class="s2">(</span><span class="s0">TextEditingValue oldValue</span><span class="s2">, </span><span class="s0">TextEditingValue newValue</span><span class="s2">) {</span>
+    <span class="s3">return </span><span class="s0">TextEditingValue</span><span class="s2">(</span>
+      <span class="s0">text</span><span class="s2">: </span><span class="s0">newValue</span><span class="s2">.</span><span class="s0">text</span><span class="s2">.</span><span class="s0">toUpperCase</span><span class="s2">(),</span>
+      <span class="s0">selection</span><span class="s2">: </span><span class="s0">newValue</span><span class="s2">.</span><span class="s0">selection</span><span class="s2">,</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+<span class="s2">}</span></pre>
+</body>
+</html>

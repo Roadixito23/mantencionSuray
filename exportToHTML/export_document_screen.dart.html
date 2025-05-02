@@ -1,0 +1,223 @@
+<html>
+<head>
+<title>export_document_screen.dart</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #bcbec4;}
+.s1 { color: #6aab73;}
+.s2 { color: #bcbec4;}
+.s3 { color: #cf8e6d;}
+.s4 { color: #7a7e85;}
+.s5 { color: #2aacb8;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+export_document_screen.dart</font>
+</center></td></tr></table>
+<pre><span class="s0">import </span><span class="s1">'package:flutter/material.dart'</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">'custom_document_handler.dart'</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">'dart:io'</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">'dart:convert'</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">'package:path_provider/path_provider.dart'</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">'package:url_launcher/url_launcher.dart'</span><span class="s2">;</span>
+
+<span class="s3">class </span><span class="s0">ExportDocumentScreen </span><span class="s3">extends </span><span class="s0">StatefulWidget </span><span class="s2">{</span>
+  <span class="s3">const </span><span class="s0">ExportDocumentScreen</span><span class="s2">({</span><span class="s0">Key</span><span class="s2">? </span><span class="s0">key</span><span class="s2">}) : </span><span class="s3">super</span><span class="s2">(</span><span class="s0">key</span><span class="s2">: </span><span class="s0">key</span><span class="s2">);</span>
+
+  <span class="s0">@override</span>
+  <span class="s0">_ExportDocumentScreenState createState</span><span class="s2">() =&gt; </span><span class="s0">_ExportDocumentScreenState</span><span class="s2">();</span>
+<span class="s2">}</span>
+
+<span class="s3">class </span><span class="s0">_ExportDocumentScreenState </span><span class="s3">extends </span><span class="s0">State</span><span class="s2">&lt;</span><span class="s0">ExportDocumentScreen</span><span class="s2">&gt; {</span>
+  <span class="s0">List</span><span class="s2">&lt;</span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt;&gt; </span><span class="s0">_maquinas </span><span class="s2">= [];</span>
+  <span class="s0">bool _generando </span><span class="s2">= </span><span class="s3">false</span><span class="s2">;</span>
+  <span class="s0">String</span><span class="s2">? </span><span class="s0">_rutaArchivoGenerado</span><span class="s2">;</span>
+
+  <span class="s0">@override</span>
+  <span class="s3">void </span><span class="s0">initState</span><span class="s2">() {</span>
+    <span class="s3">super</span><span class="s2">.</span><span class="s0">initState</span><span class="s2">();</span>
+    <span class="s0">_cargarMaquinas</span><span class="s2">();</span>
+  <span class="s2">}</span>
+
+  <span class="s4">// Cargar máquinas desde el almacenamiento local</span>
+  <span class="s0">Future</span><span class="s2">&lt;</span><span class="s3">void</span><span class="s2">&gt; </span><span class="s0">_cargarMaquinas</span><span class="s2">() </span><span class="s0">async </span><span class="s2">{</span>
+    <span class="s3">final </span><span class="s0">datos </span><span class="s2">= </span><span class="s0">await CustomDocumentHandler</span><span class="s2">.</span><span class="s0">cargarDatosLocales</span><span class="s2">();</span>
+    <span class="s0">setState</span><span class="s2">(() {</span>
+      <span class="s0">_maquinas </span><span class="s2">= </span><span class="s0">datos</span><span class="s2">;</span>
+    <span class="s2">});</span>
+  <span class="s2">}</span>
+
+  <span class="s4">// Exportar documento</span>
+  <span class="s0">Future</span><span class="s2">&lt;</span><span class="s3">void</span><span class="s2">&gt; </span><span class="s0">_exportarDocumento</span><span class="s2">() </span><span class="s0">async </span><span class="s2">{</span>
+    <span class="s3">if </span><span class="s2">(</span><span class="s0">_maquinas</span><span class="s2">.</span><span class="s0">isEmpty</span><span class="s2">) {</span>
+      <span class="s0">ScaffoldMessenger</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">showSnackBar</span><span class="s2">(</span>
+        <span class="s3">const </span><span class="s0">SnackBar</span><span class="s2">(</span>
+          <span class="s0">content</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'No hay máquinas para exportar'</span><span class="s2">),</span>
+          <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">orange</span><span class="s2">,</span>
+        <span class="s2">),</span>
+      <span class="s2">);</span>
+      <span class="s3">return</span><span class="s2">;</span>
+    <span class="s2">}</span>
+
+    <span class="s0">setState</span><span class="s2">(() {</span>
+      <span class="s0">_generando </span><span class="s2">= </span><span class="s3">true</span><span class="s2">;</span>
+      <span class="s0">_rutaArchivoGenerado </span><span class="s2">= </span><span class="s3">null</span><span class="s2">;</span>
+    <span class="s2">});</span>
+
+    <span class="s3">try </span><span class="s2">{</span>
+      <span class="s3">final </span><span class="s0">rutaArchivo </span><span class="s2">= </span><span class="s0">await CustomDocumentHandler</span><span class="s2">.</span><span class="s0">exportarDocumento</span><span class="s2">(</span><span class="s0">context</span><span class="s2">);</span>
+
+      <span class="s0">setState</span><span class="s2">(() {</span>
+        <span class="s0">_generando </span><span class="s2">= </span><span class="s3">false</span><span class="s2">;</span>
+        <span class="s0">_rutaArchivoGenerado </span><span class="s2">= </span><span class="s0">rutaArchivo</span><span class="s2">;</span>
+      <span class="s2">});</span>
+
+      <span class="s3">if </span><span class="s2">(</span><span class="s0">rutaArchivo </span><span class="s2">!= </span><span class="s3">null</span><span class="s2">) {</span>
+        <span class="s0">ScaffoldMessenger</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">showSnackBar</span><span class="s2">(</span>
+          <span class="s0">SnackBar</span><span class="s2">(</span>
+            <span class="s0">content</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Documento guardado en: </span><span class="s2">$</span><span class="s0">rutaArchivo</span><span class="s1">'</span><span class="s2">),</span>
+            <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">green</span><span class="s2">,</span>
+            <span class="s0">action</span><span class="s2">: </span><span class="s0">SnackBarAction</span><span class="s2">(</span>
+              <span class="s0">label</span><span class="s2">: </span><span class="s1">'Abrir'</span><span class="s2">,</span>
+              <span class="s0">onPressed</span><span class="s2">: () {</span>
+                <span class="s0">_abrirArchivo</span><span class="s2">(</span><span class="s0">rutaArchivo</span><span class="s2">);</span>
+              <span class="s2">},</span>
+            <span class="s2">),</span>
+          <span class="s2">),</span>
+        <span class="s2">);</span>
+      <span class="s2">} </span><span class="s3">else </span><span class="s2">{</span>
+        <span class="s4">// Si es null, podría ser porque el usuario canceló la operación</span>
+        <span class="s0">ScaffoldMessenger</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">showSnackBar</span><span class="s2">(</span>
+          <span class="s3">const </span><span class="s0">SnackBar</span><span class="s2">(</span>
+            <span class="s0">content</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Operación cancelada'</span><span class="s2">),</span>
+            <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">orange</span><span class="s2">,</span>
+          <span class="s2">),</span>
+        <span class="s2">);</span>
+      <span class="s2">}</span>
+    <span class="s2">} </span><span class="s3">catch </span><span class="s2">(</span><span class="s0">e</span><span class="s2">) {</span>
+      <span class="s0">setState</span><span class="s2">(() {</span>
+        <span class="s0">_generando </span><span class="s2">= </span><span class="s3">false</span><span class="s2">;</span>
+      <span class="s2">});</span>
+
+      <span class="s0">ScaffoldMessenger</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">showSnackBar</span><span class="s2">(</span>
+        <span class="s0">SnackBar</span><span class="s2">(</span>
+          <span class="s0">content</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Error al generar documento: </span><span class="s2">$</span><span class="s0">e</span><span class="s1">'</span><span class="s2">),</span>
+          <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">red</span><span class="s2">,</span>
+        <span class="s2">),</span>
+      <span class="s2">);</span>
+    <span class="s2">}</span>
+  <span class="s2">}</span>
+
+  <span class="s4">// Método para abrir el archivo generado</span>
+  <span class="s0">Future</span><span class="s2">&lt;</span><span class="s3">void</span><span class="s2">&gt; </span><span class="s0">_abrirArchivo</span><span class="s2">(</span><span class="s0">String rutaArchivo</span><span class="s2">) </span><span class="s0">async </span><span class="s2">{</span>
+    <span class="s3">final </span><span class="s0">Uri uri </span><span class="s2">= </span><span class="s0">Uri</span><span class="s2">.</span><span class="s0">file</span><span class="s2">(</span><span class="s0">rutaArchivo</span><span class="s2">);</span>
+    <span class="s3">if </span><span class="s2">(</span><span class="s0">await canLaunchUrl</span><span class="s2">(</span><span class="s0">uri</span><span class="s2">)) {</span>
+      <span class="s0">await launchUrl</span><span class="s2">(</span><span class="s0">uri</span><span class="s2">);</span>
+    <span class="s2">} </span><span class="s3">else </span><span class="s2">{</span>
+      <span class="s4">// Si no se puede abrir directamente, mostrar un mensaje</span>
+      <span class="s0">ScaffoldMessenger</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">showSnackBar</span><span class="s2">(</span>
+        <span class="s0">SnackBar</span><span class="s2">(</span>
+          <span class="s0">content</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'No se puede abrir el archivo: </span><span class="s2">$</span><span class="s0">rutaArchivo</span><span class="s1">'</span><span class="s2">),</span>
+          <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">red</span><span class="s2">,</span>
+        <span class="s2">),</span>
+      <span class="s2">);</span>
+    <span class="s2">}</span>
+  <span class="s2">}</span>
+
+  <span class="s0">@override</span>
+  <span class="s0">Widget build</span><span class="s2">(</span><span class="s0">BuildContext context</span><span class="s2">) {</span>
+    <span class="s3">return </span><span class="s0">Scaffold</span><span class="s2">(</span>
+      <span class="s0">appBar</span><span class="s2">: </span><span class="s0">AppBar</span><span class="s2">(</span>
+        <span class="s0">title</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Exportar Documento'</span><span class="s2">),</span>
+        <span class="s0">centerTitle</span><span class="s2">: </span><span class="s3">true</span><span class="s2">,</span>
+      <span class="s2">),</span>
+      <span class="s0">body</span><span class="s2">: </span><span class="s0">Center</span><span class="s2">(</span>
+        <span class="s0">child</span><span class="s2">: </span><span class="s0">Padding</span><span class="s2">(</span>
+          <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">all</span><span class="s2">(</span><span class="s5">16.0</span><span class="s2">),</span>
+          <span class="s0">child</span><span class="s2">: </span><span class="s0">Column</span><span class="s2">(</span>
+            <span class="s0">mainAxisAlignment</span><span class="s2">: </span><span class="s0">MainAxisAlignment</span><span class="s2">.</span><span class="s0">center</span><span class="s2">,</span>
+            <span class="s0">crossAxisAlignment</span><span class="s2">: </span><span class="s0">CrossAxisAlignment</span><span class="s2">.</span><span class="s0">stretch</span><span class="s2">,</span>
+            <span class="s0">children</span><span class="s2">: [</span>
+              <span class="s0">Icon</span><span class="s2">(</span>
+                <span class="s0">Icons</span><span class="s2">.</span><span class="s0">save_alt</span><span class="s2">,</span>
+                <span class="s0">size</span><span class="s2">: </span><span class="s5">100</span><span class="s2">,</span>
+                <span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">blue</span><span class="s2">.</span><span class="s0">shade300</span><span class="s2">,</span>
+              <span class="s2">),</span>
+              <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">20</span><span class="s2">),</span>
+              <span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span>
+                <span class="s1">'Exportar Datos de Máquinas'</span><span class="s2">,</span>
+                <span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span>
+                  <span class="s0">fontSize</span><span class="s2">: </span><span class="s5">22</span><span class="s2">,</span>
+                  <span class="s0">fontWeight</span><span class="s2">: </span><span class="s0">FontWeight</span><span class="s2">.</span><span class="s0">bold</span><span class="s2">,</span>
+                <span class="s2">),</span>
+                <span class="s0">textAlign</span><span class="s2">: </span><span class="s0">TextAlign</span><span class="s2">.</span><span class="s0">center</span><span class="s2">,</span>
+              <span class="s2">),</span>
+              <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">10</span><span class="s2">),</span>
+              <span class="s0">Text</span><span class="s2">(</span>
+                <span class="s1">'Total de Máquinas: </span><span class="s2">${</span><span class="s0">_maquinas</span><span class="s2">.</span><span class="s0">length</span><span class="s2">}</span><span class="s1">'</span><span class="s2">,</span>
+                <span class="s0">style</span><span class="s2">: </span><span class="s3">const </span><span class="s0">TextStyle</span><span class="s2">(</span>
+                  <span class="s0">fontSize</span><span class="s2">: </span><span class="s5">16</span><span class="s2">,</span>
+                  <span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">grey</span><span class="s2">,</span>
+                <span class="s2">),</span>
+                <span class="s0">textAlign</span><span class="s2">: </span><span class="s0">TextAlign</span><span class="s2">.</span><span class="s0">center</span><span class="s2">,</span>
+              <span class="s2">),</span>
+              <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">20</span><span class="s2">),</span>
+              <span class="s3">const </span><span class="s0">Padding</span><span class="s2">(</span>
+                <span class="s0">padding</span><span class="s2">: </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">symmetric</span><span class="s2">(</span><span class="s0">horizontal</span><span class="s2">: </span><span class="s5">20</span><span class="s2">, </span><span class="s0">vertical</span><span class="s2">: </span><span class="s5">10</span><span class="s2">),</span>
+                <span class="s0">child</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span>
+                  <span class="s1">'Esta función permite exportar todos los datos a un archivo de respaldo (.suray) que podrás guardar en tu dispositivo y restaurar posteriormente.'</span><span class="s2">,</span>
+                  <span class="s0">textAlign</span><span class="s2">: </span><span class="s0">TextAlign</span><span class="s2">.</span><span class="s0">center</span><span class="s2">,</span>
+                  <span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span><span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">grey</span><span class="s2">),</span>
+                <span class="s2">),</span>
+              <span class="s2">),</span>
+              <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">30</span><span class="s2">),</span>
+              <span class="s0">ElevatedButton</span><span class="s2">.</span><span class="s0">icon</span><span class="s2">(</span>
+                <span class="s0">onPressed</span><span class="s2">: </span><span class="s0">_generando </span><span class="s2">? </span><span class="s3">null </span><span class="s2">: </span><span class="s0">_exportarDocumento</span><span class="s2">,</span>
+                <span class="s0">icon</span><span class="s2">: </span><span class="s0">_generando</span>
+                    <span class="s2">? </span><span class="s3">const </span><span class="s0">CircularProgressIndicator</span><span class="s2">(</span>
+                  <span class="s0">valueColor</span><span class="s2">: </span><span class="s0">AlwaysStoppedAnimation</span><span class="s2">&lt;</span><span class="s0">Color</span><span class="s2">&gt;(</span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">white</span><span class="s2">),</span>
+                <span class="s2">)</span>
+                    <span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">download</span><span class="s2">),</span>
+                <span class="s0">label</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s0">_generando </span><span class="s2">? </span><span class="s1">'Generando...' </span><span class="s2">: </span><span class="s1">'Exportar Documento'</span><span class="s2">),</span>
+                <span class="s0">style</span><span class="s2">: </span><span class="s0">ElevatedButton</span><span class="s2">.</span><span class="s0">styleFrom</span><span class="s2">(</span>
+                  <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">symmetric</span><span class="s2">(</span><span class="s0">vertical</span><span class="s2">: </span><span class="s5">15</span><span class="s2">),</span>
+                  <span class="s0">shape</span><span class="s2">: </span><span class="s0">RoundedRectangleBorder</span><span class="s2">(</span>
+                    <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">),</span>
+                  <span class="s2">),</span>
+                <span class="s2">),</span>
+              <span class="s2">),</span>
+              <span class="s3">if </span><span class="s2">(</span><span class="s0">_rutaArchivoGenerado </span><span class="s2">!= </span><span class="s3">null</span><span class="s2">) </span><span class="s0">...</span><span class="s2">[</span>
+                <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">20</span><span class="s2">),</span>
+                <span class="s0">Text</span><span class="s2">(</span>
+                  <span class="s1">'Archivo guardado en: </span><span class="s2">$</span><span class="s0">_rutaArchivoGenerado</span><span class="s1">'</span><span class="s2">,</span>
+                  <span class="s0">style</span><span class="s2">: </span><span class="s3">const </span><span class="s0">TextStyle</span><span class="s2">(</span>
+                    <span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">green</span><span class="s2">,</span>
+                    <span class="s0">fontStyle</span><span class="s2">: </span><span class="s0">FontStyle</span><span class="s2">.</span><span class="s0">italic</span><span class="s2">,</span>
+                  <span class="s2">),</span>
+                  <span class="s0">textAlign</span><span class="s2">: </span><span class="s0">TextAlign</span><span class="s2">.</span><span class="s0">center</span><span class="s2">,</span>
+                <span class="s2">),</span>
+                <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">10</span><span class="s2">),</span>
+                <span class="s0">OutlinedButton</span><span class="s2">.</span><span class="s0">icon</span><span class="s2">(</span>
+                  <span class="s0">onPressed</span><span class="s2">: () =&gt; </span><span class="s0">_abrirArchivo</span><span class="s2">(</span><span class="s0">_rutaArchivoGenerado</span><span class="s2">!),</span>
+                  <span class="s0">icon</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">folder_open</span><span class="s2">),</span>
+                  <span class="s0">label</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Abrir archivo'</span><span class="s2">),</span>
+                  <span class="s0">style</span><span class="s2">: </span><span class="s0">OutlinedButton</span><span class="s2">.</span><span class="s0">styleFrom</span><span class="s2">(</span>
+                    <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">symmetric</span><span class="s2">(</span><span class="s0">vertical</span><span class="s2">: </span><span class="s5">12</span><span class="s2">),</span>
+                    <span class="s0">shape</span><span class="s2">: </span><span class="s0">RoundedRectangleBorder</span><span class="s2">(</span>
+                      <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">10</span><span class="s2">),</span>
+                    <span class="s2">),</span>
+                  <span class="s2">),</span>
+                <span class="s2">),</span>
+              <span class="s2">],</span>
+            <span class="s2">],</span>
+          <span class="s2">),</span>
+        <span class="s2">),</span>
+      <span class="s2">),</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+<span class="s2">}</span></pre>
+</body>
+</html>
