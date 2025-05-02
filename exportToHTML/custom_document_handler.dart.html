@@ -1,0 +1,204 @@
+<html>
+<head>
+<title>custom_document_handler.dart</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #bcbec4;}
+.s1 { color: #6aab73;}
+.s2 { color: #bcbec4;}
+.s3 { color: #cf8e6d;}
+.s4 { color: #7a7e85;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+custom_document_handler.dart</font>
+</center></td></tr></table>
+<pre><span class="s0">import </span><span class="s1">'dart:convert'</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">'dart:io'</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">'package:flutter/material.dart'</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">'package:path_provider/path_provider.dart'</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">'package:file_picker/file_picker.dart'</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">'package:intl/intl.dart'</span><span class="s2">;</span>
+
+<span class="s3">class </span><span class="s0">CustomDocumentHandler </span><span class="s2">{</span>
+  <span class="s4">// Formato de fecha para el nombre del archivo</span>
+  <span class="s0">static </span><span class="s3">final </span><span class="s0">DateFormat _dateFormatter </span><span class="s2">= </span><span class="s0">DateFormat</span><span class="s2">(</span><span class="s1">'yyyyMMdd_HHmmss'</span><span class="s2">);</span>
+
+  <span class="s4">// Nombre del archivo de datos local</span>
+  <span class="s0">static </span><span class="s3">const </span><span class="s0">String _dataFileName </span><span class="s2">= </span><span class="s1">'maquinas.json'</span><span class="s2">;</span>
+
+  <span class="s4">// Extensión de archivo personalizada</span>
+  <span class="s0">static </span><span class="s3">const </span><span class="s0">String _fileExtension </span><span class="s2">= </span><span class="s1">'suray'</span><span class="s2">;</span>
+
+  <span class="s4">// Cargar datos desde el archivo local</span>
+  <span class="s0">static Future</span><span class="s2">&lt;</span><span class="s0">List</span><span class="s2">&lt;</span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt;&gt;&gt; </span><span class="s0">cargarDatosLocales</span><span class="s2">() </span><span class="s0">async </span><span class="s2">{</span>
+    <span class="s3">try </span><span class="s2">{</span>
+      <span class="s3">final </span><span class="s0">directory </span><span class="s2">= </span><span class="s0">await getApplicationDocumentsDirectory</span><span class="s2">();</span>
+      <span class="s3">final </span><span class="s0">file </span><span class="s2">= </span><span class="s0">File</span><span class="s2">(</span><span class="s1">'</span><span class="s2">${</span><span class="s0">directory</span><span class="s2">.</span><span class="s0">path</span><span class="s2">}</span><span class="s1">/</span><span class="s2">$</span><span class="s0">_dataFileName</span><span class="s1">'</span><span class="s2">);</span>
+
+      <span class="s3">if </span><span class="s2">(</span><span class="s0">await file</span><span class="s2">.</span><span class="s0">exists</span><span class="s2">()) {</span>
+        <span class="s3">final </span><span class="s0">contenido </span><span class="s2">= </span><span class="s0">await file</span><span class="s2">.</span><span class="s0">readAsString</span><span class="s2">();</span>
+        <span class="s3">final </span><span class="s0">List</span><span class="s2">&lt;</span><span class="s0">dynamic</span><span class="s2">&gt; </span><span class="s0">datosJson </span><span class="s2">= </span><span class="s0">jsonDecode</span><span class="s2">(</span><span class="s0">contenido</span><span class="s2">);</span>
+        <span class="s3">return </span><span class="s0">datosJson</span><span class="s2">.</span><span class="s0">cast</span><span class="s2">&lt;</span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt;&gt;();</span>
+      <span class="s2">}</span>
+      <span class="s3">return </span><span class="s2">[];</span>
+    <span class="s2">} </span><span class="s3">catch </span><span class="s2">(</span><span class="s0">e</span><span class="s2">) {</span>
+      <span class="s0">print</span><span class="s2">(</span><span class="s1">'Error al cargar datos locales: </span><span class="s2">$</span><span class="s0">e</span><span class="s1">'</span><span class="s2">);</span>
+      <span class="s3">return </span><span class="s2">[];</span>
+    <span class="s2">}</span>
+  <span class="s2">}</span>
+
+  <span class="s4">// Guardar datos al archivo local</span>
+  <span class="s0">static Future</span><span class="s2">&lt;</span><span class="s0">bool</span><span class="s2">&gt; </span><span class="s0">guardarDatosLocales</span><span class="s2">(</span><span class="s0">List</span><span class="s2">&lt;</span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt;&gt; </span><span class="s0">datos</span><span class="s2">) </span><span class="s0">async </span><span class="s2">{</span>
+    <span class="s3">try </span><span class="s2">{</span>
+      <span class="s3">final </span><span class="s0">directory </span><span class="s2">= </span><span class="s0">await getApplicationDocumentsDirectory</span><span class="s2">();</span>
+      <span class="s3">final </span><span class="s0">file </span><span class="s2">= </span><span class="s0">File</span><span class="s2">(</span><span class="s1">'</span><span class="s2">${</span><span class="s0">directory</span><span class="s2">.</span><span class="s0">path</span><span class="s2">}</span><span class="s1">/</span><span class="s2">$</span><span class="s0">_dataFileName</span><span class="s1">'</span><span class="s2">);</span>
+
+      <span class="s3">final </span><span class="s0">jsonString </span><span class="s2">= </span><span class="s0">jsonEncode</span><span class="s2">(</span><span class="s0">datos</span><span class="s2">);</span>
+      <span class="s0">await file</span><span class="s2">.</span><span class="s0">writeAsString</span><span class="s2">(</span><span class="s0">jsonString</span><span class="s2">);</span>
+      <span class="s3">return true</span><span class="s2">;</span>
+    <span class="s2">} </span><span class="s3">catch </span><span class="s2">(</span><span class="s0">e</span><span class="s2">) {</span>
+      <span class="s0">print</span><span class="s2">(</span><span class="s1">'Error al guardar datos locales: </span><span class="s2">$</span><span class="s0">e</span><span class="s1">'</span><span class="s2">);</span>
+      <span class="s3">return false</span><span class="s2">;</span>
+    <span class="s2">}</span>
+  <span class="s2">}</span>
+
+  <span class="s4">// Exportar datos a un documento personalizado</span>
+  <span class="s0">static Future</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">?&gt; </span><span class="s0">exportarDocumento</span><span class="s2">(</span><span class="s0">BuildContext context</span><span class="s2">) </span><span class="s0">async </span><span class="s2">{</span>
+    <span class="s3">try </span><span class="s2">{</span>
+      <span class="s4">// Cargar datos actuales</span>
+      <span class="s3">final </span><span class="s0">datos </span><span class="s2">= </span><span class="s0">await cargarDatosLocales</span><span class="s2">();</span>
+
+      <span class="s3">if </span><span class="s2">(</span><span class="s0">datos</span><span class="s2">.</span><span class="s0">isEmpty</span><span class="s2">) {</span>
+        <span class="s0">ScaffoldMessenger</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">showSnackBar</span><span class="s2">(</span>
+          <span class="s3">const </span><span class="s0">SnackBar</span><span class="s2">(</span>
+            <span class="s0">content</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'No hay datos para exportar'</span><span class="s2">),</span>
+            <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">orange</span><span class="s2">,</span>
+          <span class="s2">),</span>
+        <span class="s2">);</span>
+        <span class="s3">return null</span><span class="s2">;</span>
+      <span class="s2">}</span>
+
+      <span class="s4">// Crear el documento personalizado</span>
+      <span class="s3">final </span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt; </span><span class="s0">documento </span><span class="s2">= {</span>
+        <span class="s1">'version'</span><span class="s2">: </span><span class="s1">'1.0'</span><span class="s2">,</span>
+        <span class="s1">'fecha_exportacion'</span><span class="s2">: </span><span class="s0">DateTime</span><span class="s2">.</span><span class="s0">now</span><span class="s2">().</span><span class="s0">toIso8601String</span><span class="s2">(),</span>
+        <span class="s1">'tipo_documento'</span><span class="s2">: </span><span class="s1">'Suray Backup'</span><span class="s2">,</span>
+        <span class="s1">'datos'</span><span class="s2">: </span><span class="s0">datos</span><span class="s2">,</span>
+      <span class="s2">};</span>
+
+      <span class="s4">// Convertir a JSON</span>
+      <span class="s3">final </span><span class="s0">documentoJson </span><span class="s2">= </span><span class="s0">jsonEncode</span><span class="s2">(</span><span class="s0">documento</span><span class="s2">);</span>
+
+      <span class="s4">// Generar nombre de archivo predeterminado</span>
+      <span class="s3">final </span><span class="s0">timestamp </span><span class="s2">= </span><span class="s0">_dateFormatter</span><span class="s2">.</span><span class="s0">format</span><span class="s2">(</span><span class="s0">DateTime</span><span class="s2">.</span><span class="s0">now</span><span class="s2">());</span>
+      <span class="s3">final </span><span class="s0">nombreArchivoPredeterminado </span><span class="s2">= </span><span class="s1">'SurayBackup_</span><span class="s2">$</span><span class="s0">timestamp</span><span class="s1">.</span><span class="s2">$</span><span class="s0">_fileExtension</span><span class="s1">'</span><span class="s2">;</span>
+
+      <span class="s4">// Abrir selector de archivos para guardar</span>
+      <span class="s0">String</span><span class="s2">? </span><span class="s0">outputFile </span><span class="s2">= </span><span class="s0">await FilePicker</span><span class="s2">.</span><span class="s0">platform</span><span class="s2">.</span><span class="s0">saveFile</span><span class="s2">(</span>
+        <span class="s0">dialogTitle</span><span class="s2">: </span><span class="s1">'Guardar archivo de respaldo'</span><span class="s2">,</span>
+        <span class="s0">fileName</span><span class="s2">: </span><span class="s0">nombreArchivoPredeterminado</span><span class="s2">,</span>
+        <span class="s0">type</span><span class="s2">: </span><span class="s0">FileType</span><span class="s2">.</span><span class="s0">custom</span><span class="s2">,</span>
+        <span class="s0">allowedExtensions</span><span class="s2">: [</span><span class="s0">_fileExtension</span><span class="s2">],</span>
+      <span class="s2">);</span>
+
+      <span class="s4">// Si el usuario canceló la operación</span>
+      <span class="s3">if </span><span class="s2">(</span><span class="s0">outputFile </span><span class="s2">== </span><span class="s3">null</span><span class="s2">) {</span>
+        <span class="s3">return null</span><span class="s2">;</span>
+      <span class="s2">}</span>
+
+      <span class="s4">// Asegurarnos que el archivo tiene la extensión correcta</span>
+      <span class="s3">if </span><span class="s2">(!</span><span class="s0">outputFile</span><span class="s2">.</span><span class="s0">endsWith</span><span class="s2">(</span><span class="s1">'.</span><span class="s2">$</span><span class="s0">_fileExtension</span><span class="s1">'</span><span class="s2">)) {</span>
+        <span class="s0">outputFile </span><span class="s2">+= </span><span class="s1">'.</span><span class="s2">$</span><span class="s0">_fileExtension</span><span class="s1">'</span><span class="s2">;</span>
+      <span class="s2">}</span>
+
+      <span class="s4">// Guardar el archivo</span>
+      <span class="s3">final </span><span class="s0">file </span><span class="s2">= </span><span class="s0">File</span><span class="s2">(</span><span class="s0">outputFile</span><span class="s2">);</span>
+      <span class="s0">await file</span><span class="s2">.</span><span class="s0">writeAsString</span><span class="s2">(</span><span class="s0">documentoJson</span><span class="s2">);</span>
+
+      <span class="s3">return </span><span class="s0">outputFile</span><span class="s2">;</span>
+    <span class="s2">} </span><span class="s3">catch </span><span class="s2">(</span><span class="s0">e</span><span class="s2">) {</span>
+      <span class="s0">print</span><span class="s2">(</span><span class="s1">'Error al exportar documento: </span><span class="s2">$</span><span class="s0">e</span><span class="s1">'</span><span class="s2">);</span>
+      <span class="s0">ScaffoldMessenger</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">showSnackBar</span><span class="s2">(</span>
+        <span class="s0">SnackBar</span><span class="s2">(</span>
+          <span class="s0">content</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Error al exportar: </span><span class="s2">$</span><span class="s0">e</span><span class="s1">'</span><span class="s2">),</span>
+          <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">red</span><span class="s2">,</span>
+        <span class="s2">),</span>
+      <span class="s2">);</span>
+      <span class="s3">return null</span><span class="s2">;</span>
+    <span class="s2">}</span>
+  <span class="s2">}</span>
+
+  <span class="s4">// Importar datos desde un documento personalizado</span>
+  <span class="s0">static Future</span><span class="s2">&lt;</span><span class="s0">List</span><span class="s2">&lt;</span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt;&gt;?&gt; </span><span class="s0">importarDocumento</span><span class="s2">() </span><span class="s0">async </span><span class="s2">{</span>
+    <span class="s3">try </span><span class="s2">{</span>
+      <span class="s4">// Abrir selector de archivos</span>
+      <span class="s0">FilePickerResult</span><span class="s2">? </span><span class="s0">result </span><span class="s2">= </span><span class="s0">await FilePicker</span><span class="s2">.</span><span class="s0">platform</span><span class="s2">.</span><span class="s0">pickFiles</span><span class="s2">(</span>
+        <span class="s0">type</span><span class="s2">: </span><span class="s0">FileType</span><span class="s2">.</span><span class="s0">custom</span><span class="s2">,</span>
+        <span class="s0">allowedExtensions</span><span class="s2">: [</span><span class="s0">_fileExtension</span><span class="s2">],</span>
+        <span class="s0">allowMultiple</span><span class="s2">: </span><span class="s3">false</span><span class="s2">,</span>
+      <span class="s2">);</span>
+
+      <span class="s3">if </span><span class="s2">(</span><span class="s0">result </span><span class="s2">== </span><span class="s3">null </span><span class="s2">|| </span><span class="s0">result</span><span class="s2">.</span><span class="s0">files</span><span class="s2">.</span><span class="s0">isEmpty </span><span class="s2">|| </span><span class="s0">result</span><span class="s2">.</span><span class="s0">files</span><span class="s2">.</span><span class="s0">first</span><span class="s2">.</span><span class="s0">path </span><span class="s2">== </span><span class="s3">null</span><span class="s2">) {</span>
+        <span class="s3">return null</span><span class="s2">;</span>
+      <span class="s2">}</span>
+
+      <span class="s4">// Leer el archivo</span>
+      <span class="s3">final </span><span class="s0">file </span><span class="s2">= </span><span class="s0">File</span><span class="s2">(</span><span class="s0">result</span><span class="s2">.</span><span class="s0">files</span><span class="s2">.</span><span class="s0">first</span><span class="s2">.</span><span class="s0">path</span><span class="s2">!);</span>
+      <span class="s3">final </span><span class="s0">contenido </span><span class="s2">= </span><span class="s0">await file</span><span class="s2">.</span><span class="s0">readAsString</span><span class="s2">();</span>
+
+      <span class="s4">// Decodificar el documento</span>
+      <span class="s3">final </span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt; </span><span class="s0">documento </span><span class="s2">= </span><span class="s0">jsonDecode</span><span class="s2">(</span><span class="s0">contenido</span><span class="s2">);</span>
+
+      <span class="s4">// Verificar que sea un documento válido</span>
+      <span class="s3">if </span><span class="s2">(!</span><span class="s0">documento</span><span class="s2">.</span><span class="s0">containsKey</span><span class="s2">(</span><span class="s1">'version'</span><span class="s2">) || !</span><span class="s0">documento</span><span class="s2">.</span><span class="s0">containsKey</span><span class="s2">(</span><span class="s1">'datos'</span><span class="s2">)) {</span>
+        <span class="s3">throw </span><span class="s0">Exception</span><span class="s2">(</span><span class="s1">'El archivo no es un documento de respaldo válido'</span><span class="s2">);</span>
+      <span class="s2">}</span>
+
+      <span class="s4">// Extraer datos</span>
+      <span class="s3">final </span><span class="s0">List</span><span class="s2">&lt;</span><span class="s0">dynamic</span><span class="s2">&gt; </span><span class="s0">datosJson </span><span class="s2">= </span><span class="s0">documento</span><span class="s2">[</span><span class="s1">'datos'</span><span class="s2">];</span>
+      <span class="s3">return </span><span class="s0">datosJson</span><span class="s2">.</span><span class="s0">cast</span><span class="s2">&lt;</span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt;&gt;();</span>
+    <span class="s2">} </span><span class="s3">catch </span><span class="s2">(</span><span class="s0">e</span><span class="s2">) {</span>
+      <span class="s0">print</span><span class="s2">(</span><span class="s1">'Error al importar documento: </span><span class="s2">$</span><span class="s0">e</span><span class="s1">'</span><span class="s2">);</span>
+      <span class="s3">return null</span><span class="s2">;</span>
+    <span class="s2">}</span>
+  <span class="s2">}</span>
+
+  <span class="s4">// Guardar los datos importados</span>
+  <span class="s0">static Future</span><span class="s2">&lt;</span><span class="s0">bool</span><span class="s2">&gt; </span><span class="s0">guardarDatosImportados</span><span class="s2">(</span><span class="s0">List</span><span class="s2">&lt;</span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt;&gt; </span><span class="s0">datos</span><span class="s2">) </span><span class="s0">async </span><span class="s2">{</span>
+    <span class="s3">try </span><span class="s2">{</span>
+      <span class="s3">final </span><span class="s0">datosExistentes </span><span class="s2">= </span><span class="s0">await cargarDatosLocales</span><span class="s2">();</span>
+
+      <span class="s4">// Map para mantener los datos únicos por ID</span>
+      <span class="s3">final </span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt;&gt; </span><span class="s0">mapaUnificado </span><span class="s2">= {};</span>
+
+      <span class="s4">// Agregar datos existentes al mapa</span>
+      <span class="s3">for </span><span class="s2">(</span><span class="s3">var </span><span class="s0">dato </span><span class="s3">in </span><span class="s0">datosExistentes</span><span class="s2">) {</span>
+        <span class="s3">if </span><span class="s2">(</span><span class="s0">dato</span><span class="s2">.</span><span class="s0">containsKey</span><span class="s2">(</span><span class="s1">'id'</span><span class="s2">)) {</span>
+          <span class="s0">mapaUnificado</span><span class="s2">[</span><span class="s0">dato</span><span class="s2">[</span><span class="s1">'id'</span><span class="s2">].</span><span class="s0">toString</span><span class="s2">()] = </span><span class="s0">dato</span><span class="s2">;</span>
+        <span class="s2">}</span>
+      <span class="s2">}</span>
+
+      <span class="s4">// Sobrescribir/agregar datos importados</span>
+      <span class="s3">for </span><span class="s2">(</span><span class="s3">var </span><span class="s0">dato </span><span class="s3">in </span><span class="s0">datos</span><span class="s2">) {</span>
+        <span class="s3">if </span><span class="s2">(</span><span class="s0">dato</span><span class="s2">.</span><span class="s0">containsKey</span><span class="s2">(</span><span class="s1">'id'</span><span class="s2">)) {</span>
+          <span class="s0">mapaUnificado</span><span class="s2">[</span><span class="s0">dato</span><span class="s2">[</span><span class="s1">'id'</span><span class="s2">].</span><span class="s0">toString</span><span class="s2">()] = </span><span class="s0">dato</span><span class="s2">;</span>
+        <span class="s2">}</span>
+      <span class="s2">}</span>
+
+      <span class="s4">// Convertir mapa de vuelta a lista</span>
+      <span class="s3">final </span><span class="s0">List</span><span class="s2">&lt;</span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt;&gt; </span><span class="s0">datosUnificados </span><span class="s2">= </span><span class="s0">mapaUnificado</span><span class="s2">.</span><span class="s0">values</span><span class="s2">.</span><span class="s0">toList</span><span class="s2">();</span>
+
+      <span class="s4">// Guardar en archivo local</span>
+      <span class="s3">return </span><span class="s0">await guardarDatosLocales</span><span class="s2">(</span><span class="s0">datosUnificados</span><span class="s2">);</span>
+    <span class="s2">} </span><span class="s3">catch </span><span class="s2">(</span><span class="s0">e</span><span class="s2">) {</span>
+      <span class="s0">print</span><span class="s2">(</span><span class="s1">'Error al guardar datos importados: </span><span class="s2">$</span><span class="s0">e</span><span class="s1">'</span><span class="s2">);</span>
+      <span class="s3">return false</span><span class="s2">;</span>
+    <span class="s2">}</span>
+  <span class="s2">}</span>
+<span class="s2">}</span></pre>
+</body>
+</html>

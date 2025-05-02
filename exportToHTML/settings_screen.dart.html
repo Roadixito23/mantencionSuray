@@ -1,0 +1,288 @@
+<html>
+<head>
+<title>settings_screen.dart</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #bcbec4;}
+.s1 { color: #6aab73;}
+.s2 { color: #bcbec4;}
+.s3 { color: #cf8e6d;}
+.s4 { color: #2aacb8;}
+.s5 { color: #7a7e85;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+settings_screen.dart</font>
+</center></td></tr></table>
+<pre><span class="s0">import </span><span class="s1">'package:flutter/material.dart'</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">'import_document_screen.dart'</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">'export_document_screen.dart'</span><span class="s2">;</span>
+
+<span class="s3">class </span><span class="s0">SettingsScreen </span><span class="s3">extends </span><span class="s0">StatefulWidget </span><span class="s2">{</span>
+  <span class="s3">const </span><span class="s0">SettingsScreen</span><span class="s2">({</span><span class="s0">Key</span><span class="s2">? </span><span class="s0">key</span><span class="s2">}) : </span><span class="s3">super</span><span class="s2">(</span><span class="s0">key</span><span class="s2">: </span><span class="s0">key</span><span class="s2">);</span>
+
+  <span class="s0">@override</span>
+  <span class="s0">_SettingsScreenState createState</span><span class="s2">() =&gt; </span><span class="s0">_SettingsScreenState</span><span class="s2">();</span>
+<span class="s2">}</span>
+
+<span class="s3">class </span><span class="s0">_SettingsScreenState </span><span class="s3">extends </span><span class="s0">State</span><span class="s2">&lt;</span><span class="s0">SettingsScreen</span><span class="s2">&gt; {</span>
+  <span class="s0">bool _darkModeEnabled </span><span class="s2">= </span><span class="s3">false</span><span class="s2">;</span>
+  <span class="s0">bool _datosImportados </span><span class="s2">= </span><span class="s3">false</span><span class="s2">;</span>
+
+  <span class="s0">@override</span>
+  <span class="s3">void </span><span class="s0">initState</span><span class="s2">() {</span>
+    <span class="s3">super</span><span class="s2">.</span><span class="s0">initState</span><span class="s2">();</span>
+  <span class="s2">}</span>
+
+  <span class="s0">@override</span>
+  <span class="s0">Widget build</span><span class="s2">(</span><span class="s0">BuildContext context</span><span class="s2">) {</span>
+    <span class="s3">return </span><span class="s0">Scaffold</span><span class="s2">(</span>
+      <span class="s0">appBar</span><span class="s2">: </span><span class="s0">AppBar</span><span class="s2">(</span>
+        <span class="s0">title</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Configuraciones'</span><span class="s2">),</span>
+        <span class="s0">centerTitle</span><span class="s2">: </span><span class="s3">true</span><span class="s2">,</span>
+      <span class="s2">),</span>
+      <span class="s0">body</span><span class="s2">: </span><span class="s0">ListView</span><span class="s2">(</span>
+        <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">all</span><span class="s2">(</span><span class="s4">16</span><span class="s2">),</span>
+        <span class="s0">children</span><span class="s2">: [</span>
+          <span class="s5">// Sección de respaldo y restauración</span>
+          <span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span>
+            <span class="s1">'Respaldo y Restauración'</span><span class="s2">,</span>
+            <span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span>
+              <span class="s0">fontSize</span><span class="s2">: </span><span class="s4">18</span><span class="s2">,</span>
+              <span class="s0">fontWeight</span><span class="s2">: </span><span class="s0">FontWeight</span><span class="s2">.</span><span class="s0">bold</span><span class="s2">,</span>
+              <span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">blue</span><span class="s2">,</span>
+            <span class="s2">),</span>
+          <span class="s2">),</span>
+          <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s4">8</span><span class="s2">),</span>
+          <span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span>
+            <span class="s1">'Importa o exporta datos para crear copias de seguridad'</span><span class="s2">,</span>
+            <span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span>
+              <span class="s0">fontSize</span><span class="s2">: </span><span class="s4">14</span><span class="s2">,</span>
+              <span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">grey</span><span class="s2">,</span>
+            <span class="s2">),</span>
+          <span class="s2">),</span>
+          <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s4">16</span><span class="s2">),</span>
+
+          <span class="s5">// Opción para importar</span>
+          <span class="s0">Card</span><span class="s2">(</span>
+            <span class="s0">elevation</span><span class="s2">: </span><span class="s4">2</span><span class="s2">,</span>
+            <span class="s0">shape</span><span class="s2">: </span><span class="s0">RoundedRectangleBorder</span><span class="s2">(</span>
+              <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s4">12</span><span class="s2">),</span>
+            <span class="s2">),</span>
+            <span class="s0">child</span><span class="s2">: </span><span class="s0">ListTile</span><span class="s2">(</span>
+              <span class="s0">leading</span><span class="s2">: </span><span class="s0">Icon</span><span class="s2">(</span>
+                <span class="s0">Icons</span><span class="s2">.</span><span class="s0">upload_file</span><span class="s2">,</span>
+                <span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">green</span><span class="s2">,</span>
+                <span class="s0">size</span><span class="s2">: </span><span class="s4">28</span><span class="s2">,</span>
+              <span class="s2">),</span>
+              <span class="s0">title</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Importar Documento'</span><span class="s2">),</span>
+              <span class="s0">subtitle</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Restaurar datos desde un archivo de respaldo'</span><span class="s2">),</span>
+              <span class="s0">trailing</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">arrow_forward_ios</span><span class="s2">, </span><span class="s0">size</span><span class="s2">: </span><span class="s4">16</span><span class="s2">),</span>
+              <span class="s0">onTap</span><span class="s2">: () </span><span class="s0">async </span><span class="s2">{</span>
+                <span class="s3">final </span><span class="s0">resultado </span><span class="s2">= </span><span class="s0">await Navigator</span><span class="s2">.</span><span class="s0">push</span><span class="s2">(</span>
+                  <span class="s0">context</span><span class="s2">,</span>
+                  <span class="s0">MaterialPageRoute</span><span class="s2">(</span>
+                    <span class="s0">builder</span><span class="s2">: (</span><span class="s0">context</span><span class="s2">) =&gt; </span><span class="s3">const </span><span class="s0">ImportDocumentScreen</span><span class="s2">(),</span>
+                  <span class="s2">),</span>
+                <span class="s2">);</span>
+
+                <span class="s3">if </span><span class="s2">(</span><span class="s0">resultado </span><span class="s2">== </span><span class="s3">true</span><span class="s2">) {</span>
+                  <span class="s0">setState</span><span class="s2">(() {</span>
+                    <span class="s0">_datosImportados </span><span class="s2">= </span><span class="s3">true</span><span class="s2">;</span>
+                  <span class="s2">});</span>
+
+                  <span class="s0">ScaffoldMessenger</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">showSnackBar</span><span class="s2">(</span>
+                    <span class="s3">const </span><span class="s0">SnackBar</span><span class="s2">(</span>
+                      <span class="s0">content</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Datos restaurados con éxito'</span><span class="s2">),</span>
+                      <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">green</span><span class="s2">,</span>
+                    <span class="s2">),</span>
+                  <span class="s2">);</span>
+                <span class="s2">}</span>
+              <span class="s2">},</span>
+            <span class="s2">),</span>
+          <span class="s2">),</span>
+
+          <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s4">8</span><span class="s2">),</span>
+
+          <span class="s5">// Opción para exportar</span>
+          <span class="s0">Card</span><span class="s2">(</span>
+            <span class="s0">elevation</span><span class="s2">: </span><span class="s4">2</span><span class="s2">,</span>
+            <span class="s0">shape</span><span class="s2">: </span><span class="s0">RoundedRectangleBorder</span><span class="s2">(</span>
+              <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s4">12</span><span class="s2">),</span>
+            <span class="s2">),</span>
+            <span class="s0">child</span><span class="s2">: </span><span class="s0">ListTile</span><span class="s2">(</span>
+              <span class="s0">leading</span><span class="s2">: </span><span class="s0">Icon</span><span class="s2">(</span>
+                <span class="s0">Icons</span><span class="s2">.</span><span class="s0">download</span><span class="s2">,</span>
+                <span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">blue</span><span class="s2">,</span>
+                <span class="s0">size</span><span class="s2">: </span><span class="s4">28</span><span class="s2">,</span>
+              <span class="s2">),</span>
+              <span class="s0">title</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Exportar Documento'</span><span class="s2">),</span>
+              <span class="s0">subtitle</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Crear una copia de seguridad de tus datos'</span><span class="s2">),</span>
+              <span class="s0">trailing</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">arrow_forward_ios</span><span class="s2">, </span><span class="s0">size</span><span class="s2">: </span><span class="s4">16</span><span class="s2">),</span>
+              <span class="s0">onTap</span><span class="s2">: () {</span>
+                <span class="s0">Navigator</span><span class="s2">.</span><span class="s0">push</span><span class="s2">(</span>
+                  <span class="s0">context</span><span class="s2">,</span>
+                  <span class="s0">MaterialPageRoute</span><span class="s2">(</span>
+                    <span class="s0">builder</span><span class="s2">: (</span><span class="s0">context</span><span class="s2">) =&gt; </span><span class="s3">const </span><span class="s0">ExportDocumentScreen</span><span class="s2">(),</span>
+                  <span class="s2">),</span>
+                <span class="s2">);</span>
+              <span class="s2">},</span>
+            <span class="s2">),</span>
+          <span class="s2">),</span>
+
+          <span class="s3">if </span><span class="s2">(</span><span class="s0">_datosImportados</span><span class="s2">) </span><span class="s0">...</span><span class="s2">[</span>
+            <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s4">8</span><span class="s2">),</span>
+            <span class="s0">Padding</span><span class="s2">(</span>
+              <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">only</span><span class="s2">(</span><span class="s0">left</span><span class="s2">: </span><span class="s4">16</span><span class="s2">),</span>
+              <span class="s0">child</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span>
+                <span class="s1">'¡Datos importados correctamente!'</span><span class="s2">,</span>
+                <span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span>
+                  <span class="s0">fontSize</span><span class="s2">: </span><span class="s4">14</span><span class="s2">,</span>
+                  <span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">green</span><span class="s2">.</span><span class="s0">shade700</span><span class="s2">,</span>
+                  <span class="s0">fontStyle</span><span class="s2">: </span><span class="s0">FontStyle</span><span class="s2">.</span><span class="s0">italic</span><span class="s2">,</span>
+                <span class="s2">),</span>
+              <span class="s2">),</span>
+            <span class="s2">),</span>
+          <span class="s2">],</span>
+
+          <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s4">32</span><span class="s2">),</span>
+
+          <span class="s5">// Configuraciones generales</span>
+          <span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span>
+            <span class="s1">'Configuraciones Generales'</span><span class="s2">,</span>
+            <span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span>
+              <span class="s0">fontSize</span><span class="s2">: </span><span class="s4">18</span><span class="s2">,</span>
+              <span class="s0">fontWeight</span><span class="s2">: </span><span class="s0">FontWeight</span><span class="s2">.</span><span class="s0">bold</span><span class="s2">,</span>
+              <span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">blue</span><span class="s2">,</span>
+            <span class="s2">),</span>
+          <span class="s2">),</span>
+          <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s4">16</span><span class="s2">),</span>
+
+          <span class="s0">Card</span><span class="s2">(</span>
+            <span class="s0">elevation</span><span class="s2">: </span><span class="s4">2</span><span class="s2">,</span>
+            <span class="s0">shape</span><span class="s2">: </span><span class="s0">RoundedRectangleBorder</span><span class="s2">(</span>
+              <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s4">12</span><span class="s2">),</span>
+            <span class="s2">),</span>
+            <span class="s0">child</span><span class="s2">: </span><span class="s0">Column</span><span class="s2">(</span>
+              <span class="s0">children</span><span class="s2">: [</span>
+                <span class="s0">SwitchListTile</span><span class="s2">(</span>
+                  <span class="s0">title</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Modo Oscuro'</span><span class="s2">),</span>
+                  <span class="s0">subtitle</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Cambiar la apariencia de la aplicación'</span><span class="s2">),</span>
+                  <span class="s0">value</span><span class="s2">: </span><span class="s0">_darkModeEnabled</span><span class="s2">,</span>
+                  <span class="s0">secondary</span><span class="s2">: </span><span class="s0">Icon</span><span class="s2">(</span>
+                    <span class="s0">_darkModeEnabled </span><span class="s2">? </span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">dark_mode </span><span class="s2">: </span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">light_mode</span><span class="s2">,</span>
+                    <span class="s0">color</span><span class="s2">: </span><span class="s0">_darkModeEnabled </span><span class="s2">? </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">deepPurple </span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">amber</span><span class="s2">,</span>
+                  <span class="s2">),</span>
+                  <span class="s0">onChanged</span><span class="s2">: (</span><span class="s0">bool value</span><span class="s2">) {</span>
+                    <span class="s0">setState</span><span class="s2">(() {</span>
+                      <span class="s0">_darkModeEnabled </span><span class="s2">= </span><span class="s0">value</span><span class="s2">;</span>
+                    <span class="s2">});</span>
+                  <span class="s2">},</span>
+                <span class="s2">),</span>
+              <span class="s2">],</span>
+            <span class="s2">),</span>
+          <span class="s2">),</span>
+
+          <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s4">8</span><span class="s2">),</span>
+
+          <span class="s5">// Acciones adicionales</span>
+          <span class="s0">Card</span><span class="s2">(</span>
+            <span class="s0">elevation</span><span class="s2">: </span><span class="s4">2</span><span class="s2">,</span>
+            <span class="s0">shape</span><span class="s2">: </span><span class="s0">RoundedRectangleBorder</span><span class="s2">(</span>
+              <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s4">12</span><span class="s2">),</span>
+            <span class="s2">),</span>
+            <span class="s0">child</span><span class="s2">: </span><span class="s0">ListTile</span><span class="s2">(</span>
+              <span class="s0">leading</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">restore</span><span class="s2">, </span><span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">orange</span><span class="s2">),</span>
+              <span class="s0">title</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Restablecer Configuraciones'</span><span class="s2">),</span>
+              <span class="s0">subtitle</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Volver a la configuración predeterminada'</span><span class="s2">),</span>
+              <span class="s0">onTap</span><span class="s2">: () {</span>
+                <span class="s5">// Mostrar diálogo de confirmación</span>
+                <span class="s0">showDialog</span><span class="s2">(</span>
+                  <span class="s0">context</span><span class="s2">: </span><span class="s0">context</span><span class="s2">,</span>
+                  <span class="s0">builder</span><span class="s2">: (</span><span class="s0">context</span><span class="s2">) =&gt; </span><span class="s0">AlertDialog</span><span class="s2">(</span>
+                    <span class="s0">title</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Restablecer Configuraciones'</span><span class="s2">),</span>
+                    <span class="s0">content</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'¿Estás seguro de que deseas volver a la configuración predeterminada?'</span><span class="s2">),</span>
+                    <span class="s0">actions</span><span class="s2">: [</span>
+                      <span class="s0">TextButton</span><span class="s2">(</span>
+                        <span class="s0">onPressed</span><span class="s2">: () =&gt; </span><span class="s0">Navigator</span><span class="s2">.</span><span class="s0">pop</span><span class="s2">(</span><span class="s0">context</span><span class="s2">),</span>
+                        <span class="s0">child</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Cancelar'</span><span class="s2">),</span>
+                      <span class="s2">),</span>
+                      <span class="s0">ElevatedButton</span><span class="s2">(</span>
+                        <span class="s0">onPressed</span><span class="s2">: () {</span>
+                          <span class="s5">// Restablecer configuraciones</span>
+                          <span class="s0">setState</span><span class="s2">(() {</span>
+                            <span class="s0">_darkModeEnabled </span><span class="s2">= </span><span class="s3">false</span><span class="s2">;</span>
+                          <span class="s2">});</span>
+
+                          <span class="s0">Navigator</span><span class="s2">.</span><span class="s0">pop</span><span class="s2">(</span><span class="s0">context</span><span class="s2">);</span>
+
+                          <span class="s5">// Mostrar mensaje</span>
+                          <span class="s0">ScaffoldMessenger</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">showSnackBar</span><span class="s2">(</span>
+                            <span class="s3">const </span><span class="s0">SnackBar</span><span class="s2">(</span>
+                              <span class="s0">content</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Configuraciones restablecidas'</span><span class="s2">),</span>
+                              <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">green</span><span class="s2">,</span>
+                            <span class="s2">),</span>
+                          <span class="s2">);</span>
+                        <span class="s2">},</span>
+                        <span class="s0">child</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Restablecer'</span><span class="s2">),</span>
+                      <span class="s2">),</span>
+                    <span class="s2">],</span>
+                  <span class="s2">),</span>
+                <span class="s2">);</span>
+              <span class="s2">},</span>
+            <span class="s2">),</span>
+          <span class="s2">),</span>
+
+          <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s4">24</span><span class="s2">),</span>
+
+          <span class="s5">// Información de la aplicación</span>
+          <span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span>
+            <span class="s1">'Información'</span><span class="s2">,</span>
+            <span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span>
+              <span class="s0">fontSize</span><span class="s2">: </span><span class="s4">18</span><span class="s2">,</span>
+              <span class="s0">fontWeight</span><span class="s2">: </span><span class="s0">FontWeight</span><span class="s2">.</span><span class="s0">bold</span><span class="s2">,</span>
+              <span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">blue</span><span class="s2">,</span>
+            <span class="s2">),</span>
+          <span class="s2">),</span>
+          <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s4">16</span><span class="s2">),</span>
+          <span class="s0">Card</span><span class="s2">(</span>
+            <span class="s0">elevation</span><span class="s2">: </span><span class="s4">2</span><span class="s2">,</span>
+            <span class="s0">shape</span><span class="s2">: </span><span class="s0">RoundedRectangleBorder</span><span class="s2">(</span>
+              <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s4">12</span><span class="s2">),</span>
+            <span class="s2">),</span>
+            <span class="s0">child</span><span class="s2">: </span><span class="s0">Padding</span><span class="s2">(</span>
+              <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">all</span><span class="s2">(</span><span class="s4">16.0</span><span class="s2">),</span>
+              <span class="s0">child</span><span class="s2">: </span><span class="s0">Column</span><span class="s2">(</span>
+                <span class="s0">crossAxisAlignment</span><span class="s2">: </span><span class="s0">CrossAxisAlignment</span><span class="s2">.</span><span class="s0">start</span><span class="s2">,</span>
+                <span class="s0">children</span><span class="s2">: </span><span class="s3">const </span><span class="s2">[</span>
+                  <span class="s0">Text</span><span class="s2">(</span>
+                    <span class="s1">'Mantenimiento Buses Suray'</span><span class="s2">,</span>
+                    <span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span>
+                      <span class="s0">fontSize</span><span class="s2">: </span><span class="s4">16</span><span class="s2">,</span>
+                      <span class="s0">fontWeight</span><span class="s2">: </span><span class="s0">FontWeight</span><span class="s2">.</span><span class="s0">bold</span><span class="s2">,</span>
+                    <span class="s2">),</span>
+                  <span class="s2">),</span>
+                  <span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s4">8</span><span class="s2">),</span>
+                  <span class="s0">Text</span><span class="s2">(</span><span class="s1">'Versión 1.0.0'</span><span class="s2">),</span>
+                  <span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s4">4</span><span class="s2">),</span>
+                  <span class="s0">Text</span><span class="s2">(</span>
+                    <span class="s1">'Aplicación para gestión de mantenimiento de flota de buses'</span><span class="s2">,</span>
+                    <span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span>
+                      <span class="s0">fontSize</span><span class="s2">: </span><span class="s4">14</span><span class="s2">,</span>
+                      <span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">grey</span><span class="s2">,</span>
+                    <span class="s2">),</span>
+                  <span class="s2">),</span>
+                <span class="s2">],</span>
+              <span class="s2">),</span>
+            <span class="s2">),</span>
+          <span class="s2">),</span>
+        <span class="s2">],</span>
+      <span class="s2">),</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+<span class="s2">}</span></pre>
+</body>
+</html>

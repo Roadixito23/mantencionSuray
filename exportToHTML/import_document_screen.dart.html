@@ -1,0 +1,305 @@
+<html>
+<head>
+<title>import_document_screen.dart</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #bcbec4;}
+.s1 { color: #6aab73;}
+.s2 { color: #bcbec4;}
+.s3 { color: #cf8e6d;}
+.s4 { color: #7a7e85;}
+.s5 { color: #2aacb8;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+import_document_screen.dart</font>
+</center></td></tr></table>
+<pre><span class="s0">import </span><span class="s1">'package:flutter/material.dart'</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">'custom_document_handler.dart'</span><span class="s2">;</span>
+
+<span class="s3">class </span><span class="s0">ImportDocumentScreen </span><span class="s3">extends </span><span class="s0">StatefulWidget </span><span class="s2">{</span>
+  <span class="s3">const </span><span class="s0">ImportDocumentScreen</span><span class="s2">({</span><span class="s0">Key</span><span class="s2">? </span><span class="s0">key</span><span class="s2">}) : </span><span class="s3">super</span><span class="s2">(</span><span class="s0">key</span><span class="s2">: </span><span class="s0">key</span><span class="s2">);</span>
+
+  <span class="s0">@override</span>
+  <span class="s0">_ImportDocumentScreenState createState</span><span class="s2">() =&gt; </span><span class="s0">_ImportDocumentScreenState</span><span class="s2">();</span>
+<span class="s2">}</span>
+
+<span class="s3">class </span><span class="s0">_ImportDocumentScreenState </span><span class="s3">extends </span><span class="s0">State</span><span class="s2">&lt;</span><span class="s0">ImportDocumentScreen</span><span class="s2">&gt; {</span>
+  <span class="s0">bool _importando </span><span class="s2">= </span><span class="s3">false</span><span class="s2">;</span>
+  <span class="s0">bool _archivoSeleccionado </span><span class="s2">= </span><span class="s3">false</span><span class="s2">;</span>
+  <span class="s0">List</span><span class="s2">&lt;</span><span class="s0">Map</span><span class="s2">&lt;</span><span class="s0">String</span><span class="s2">, </span><span class="s0">dynamic</span><span class="s2">&gt;&gt; </span><span class="s0">_datosImportados </span><span class="s2">= [];</span>
+  <span class="s0">bool _mostrarVistaPrevia </span><span class="s2">= </span><span class="s3">false</span><span class="s2">;</span>
+
+  <span class="s4">// Seleccionar y cargar archivo</span>
+  <span class="s0">Future</span><span class="s2">&lt;</span><span class="s3">void</span><span class="s2">&gt; </span><span class="s0">_seleccionarArchivo</span><span class="s2">() </span><span class="s0">async </span><span class="s2">{</span>
+    <span class="s3">try </span><span class="s2">{</span>
+      <span class="s0">setState</span><span class="s2">(() {</span>
+        <span class="s0">_importando </span><span class="s2">= </span><span class="s3">true</span><span class="s2">;</span>
+        <span class="s0">_archivoSeleccionado </span><span class="s2">= </span><span class="s3">false</span><span class="s2">;</span>
+        <span class="s0">_mostrarVistaPrevia </span><span class="s2">= </span><span class="s3">false</span><span class="s2">;</span>
+        <span class="s0">_datosImportados </span><span class="s2">= [];</span>
+      <span class="s2">});</span>
+
+      <span class="s4">// Usar handler para importar documento</span>
+      <span class="s3">final </span><span class="s0">datos </span><span class="s2">= </span><span class="s0">await CustomDocumentHandler</span><span class="s2">.</span><span class="s0">importarDocumento</span><span class="s2">();</span>
+
+      <span class="s3">if </span><span class="s2">(</span><span class="s0">datos </span><span class="s2">!= </span><span class="s3">null </span><span class="s2">&amp;&amp; </span><span class="s0">datos</span><span class="s2">.</span><span class="s0">isNotEmpty</span><span class="s2">) {</span>
+        <span class="s0">setState</span><span class="s2">(() {</span>
+          <span class="s0">_datosImportados </span><span class="s2">= </span><span class="s0">datos</span><span class="s2">;</span>
+          <span class="s0">_archivoSeleccionado </span><span class="s2">= </span><span class="s3">true</span><span class="s2">;</span>
+          <span class="s0">_mostrarVistaPrevia </span><span class="s2">= </span><span class="s3">true</span><span class="s2">;</span>
+        <span class="s2">});</span>
+      <span class="s2">} </span><span class="s3">else if </span><span class="s2">(</span><span class="s0">datos </span><span class="s2">!= </span><span class="s3">null</span><span class="s2">) {</span>
+        <span class="s4">// Archivo seleccionado pero sin datos</span>
+        <span class="s0">ScaffoldMessenger</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">showSnackBar</span><span class="s2">(</span>
+          <span class="s3">const </span><span class="s0">SnackBar</span><span class="s2">(</span>
+            <span class="s0">content</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'El archivo seleccionado no contiene datos válidos'</span><span class="s2">),</span>
+            <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">orange</span><span class="s2">,</span>
+          <span class="s2">),</span>
+        <span class="s2">);</span>
+        <span class="s0">setState</span><span class="s2">(() {</span>
+          <span class="s0">_archivoSeleccionado </span><span class="s2">= </span><span class="s3">true</span><span class="s2">;</span>
+          <span class="s0">_mostrarVistaPrevia </span><span class="s2">= </span><span class="s3">false</span><span class="s2">;</span>
+        <span class="s2">});</span>
+      <span class="s2">} </span><span class="s3">else </span><span class="s2">{</span>
+        <span class="s4">// Operación cancelada o error</span>
+        <span class="s0">ScaffoldMessenger</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">showSnackBar</span><span class="s2">(</span>
+          <span class="s3">const </span><span class="s0">SnackBar</span><span class="s2">(</span>
+            <span class="s0">content</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Operación cancelada o archivo no válido'</span><span class="s2">),</span>
+            <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">orange</span><span class="s2">,</span>
+          <span class="s2">),</span>
+        <span class="s2">);</span>
+      <span class="s2">}</span>
+    <span class="s2">} </span><span class="s3">catch </span><span class="s2">(</span><span class="s0">e</span><span class="s2">) {</span>
+      <span class="s0">ScaffoldMessenger</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">showSnackBar</span><span class="s2">(</span>
+        <span class="s0">SnackBar</span><span class="s2">(</span>
+          <span class="s0">content</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Error al cargar el archivo: </span><span class="s2">$</span><span class="s0">e</span><span class="s1">'</span><span class="s2">),</span>
+          <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">red</span><span class="s2">,</span>
+        <span class="s2">),</span>
+      <span class="s2">);</span>
+    <span class="s2">} </span><span class="s3">finally </span><span class="s2">{</span>
+      <span class="s0">setState</span><span class="s2">(() {</span>
+        <span class="s0">_importando </span><span class="s2">= </span><span class="s3">false</span><span class="s2">;</span>
+      <span class="s2">});</span>
+    <span class="s2">}</span>
+  <span class="s2">}</span>
+
+  <span class="s4">// Importar los datos seleccionados</span>
+  <span class="s0">Future</span><span class="s2">&lt;</span><span class="s3">void</span><span class="s2">&gt; </span><span class="s0">_importarDatos</span><span class="s2">() </span><span class="s0">async </span><span class="s2">{</span>
+    <span class="s3">if </span><span class="s2">(</span><span class="s0">_datosImportados</span><span class="s2">.</span><span class="s0">isEmpty</span><span class="s2">) {</span>
+      <span class="s0">ScaffoldMessenger</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">showSnackBar</span><span class="s2">(</span>
+        <span class="s3">const </span><span class="s0">SnackBar</span><span class="s2">(</span>
+          <span class="s0">content</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'No hay datos para importar'</span><span class="s2">),</span>
+          <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">orange</span><span class="s2">,</span>
+        <span class="s2">),</span>
+      <span class="s2">);</span>
+      <span class="s3">return</span><span class="s2">;</span>
+    <span class="s2">}</span>
+
+    <span class="s0">setState</span><span class="s2">(() {</span>
+      <span class="s0">_importando </span><span class="s2">= </span><span class="s3">true</span><span class="s2">;</span>
+    <span class="s2">});</span>
+
+    <span class="s3">try </span><span class="s2">{</span>
+      <span class="s4">// Guardar datos importados</span>
+      <span class="s3">final </span><span class="s0">exito </span><span class="s2">= </span><span class="s0">await CustomDocumentHandler</span><span class="s2">.</span><span class="s0">guardarDatosImportados</span><span class="s2">(</span><span class="s0">_datosImportados</span><span class="s2">);</span>
+
+      <span class="s3">if </span><span class="s2">(</span><span class="s0">exito</span><span class="s2">) {</span>
+        <span class="s0">ScaffoldMessenger</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">showSnackBar</span><span class="s2">(</span>
+          <span class="s0">SnackBar</span><span class="s2">(</span>
+            <span class="s0">content</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'</span><span class="s2">${</span><span class="s0">_datosImportados</span><span class="s2">.</span><span class="s0">length</span><span class="s2">} </span><span class="s1">registros importados exitosamente'</span><span class="s2">),</span>
+            <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">green</span><span class="s2">,</span>
+          <span class="s2">),</span>
+        <span class="s2">);</span>
+
+        <span class="s4">// Regresar a la pantalla anterior con resultado de éxito</span>
+        <span class="s0">Future</span><span class="s2">.</span><span class="s0">delayed</span><span class="s2">(</span><span class="s3">const </span><span class="s0">Duration</span><span class="s2">(</span><span class="s0">seconds</span><span class="s2">: </span><span class="s5">2</span><span class="s2">), () {</span>
+          <span class="s0">Navigator</span><span class="s2">.</span><span class="s0">pop</span><span class="s2">(</span><span class="s0">context</span><span class="s2">, </span><span class="s3">true</span><span class="s2">);</span>
+        <span class="s2">});</span>
+      <span class="s2">} </span><span class="s3">else </span><span class="s2">{</span>
+        <span class="s0">ScaffoldMessenger</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">showSnackBar</span><span class="s2">(</span>
+          <span class="s3">const </span><span class="s0">SnackBar</span><span class="s2">(</span>
+            <span class="s0">content</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Error al guardar los datos'</span><span class="s2">),</span>
+            <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">red</span><span class="s2">,</span>
+          <span class="s2">),</span>
+        <span class="s2">);</span>
+      <span class="s2">}</span>
+    <span class="s2">} </span><span class="s3">catch </span><span class="s2">(</span><span class="s0">e</span><span class="s2">) {</span>
+      <span class="s0">ScaffoldMessenger</span><span class="s2">.</span><span class="s0">of</span><span class="s2">(</span><span class="s0">context</span><span class="s2">).</span><span class="s0">showSnackBar</span><span class="s2">(</span>
+        <span class="s0">SnackBar</span><span class="s2">(</span>
+          <span class="s0">content</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Error al importar datos: </span><span class="s2">$</span><span class="s0">e</span><span class="s1">'</span><span class="s2">),</span>
+          <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">red</span><span class="s2">,</span>
+        <span class="s2">),</span>
+      <span class="s2">);</span>
+    <span class="s2">} </span><span class="s3">finally </span><span class="s2">{</span>
+      <span class="s0">setState</span><span class="s2">(() {</span>
+        <span class="s0">_importando </span><span class="s2">= </span><span class="s3">false</span><span class="s2">;</span>
+      <span class="s2">});</span>
+    <span class="s2">}</span>
+  <span class="s2">}</span>
+
+  <span class="s0">@override</span>
+  <span class="s0">Widget build</span><span class="s2">(</span><span class="s0">BuildContext context</span><span class="s2">) {</span>
+    <span class="s3">return </span><span class="s0">Scaffold</span><span class="s2">(</span>
+      <span class="s0">appBar</span><span class="s2">: </span><span class="s0">AppBar</span><span class="s2">(</span>
+        <span class="s0">title</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Importar Documento'</span><span class="s2">),</span>
+        <span class="s0">centerTitle</span><span class="s2">: </span><span class="s3">true</span><span class="s2">,</span>
+      <span class="s2">),</span>
+      <span class="s0">body</span><span class="s2">: </span><span class="s0">_importando</span>
+          <span class="s2">? </span><span class="s3">const </span><span class="s0">Center</span><span class="s2">(</span>
+        <span class="s0">child</span><span class="s2">: </span><span class="s0">Column</span><span class="s2">(</span>
+          <span class="s0">mainAxisAlignment</span><span class="s2">: </span><span class="s0">MainAxisAlignment</span><span class="s2">.</span><span class="s0">center</span><span class="s2">,</span>
+          <span class="s0">children</span><span class="s2">: [</span>
+            <span class="s0">CircularProgressIndicator</span><span class="s2">(),</span>
+            <span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">20</span><span class="s2">),</span>
+            <span class="s0">Text</span><span class="s2">(</span><span class="s1">'Procesando archivo...'</span><span class="s2">),</span>
+          <span class="s2">],</span>
+        <span class="s2">),</span>
+      <span class="s2">)</span>
+          <span class="s2">: </span><span class="s0">_buildContent</span><span class="s2">(),</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+
+  <span class="s0">Widget _buildContent</span><span class="s2">() {</span>
+    <span class="s3">return </span><span class="s0">Padding</span><span class="s2">(</span>
+      <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">all</span><span class="s2">(</span><span class="s5">16.0</span><span class="s2">),</span>
+      <span class="s0">child</span><span class="s2">: </span><span class="s0">Column</span><span class="s2">(</span>
+        <span class="s0">crossAxisAlignment</span><span class="s2">: </span><span class="s0">CrossAxisAlignment</span><span class="s2">.</span><span class="s0">stretch</span><span class="s2">,</span>
+        <span class="s0">children</span><span class="s2">: [</span>
+          <span class="s4">// Icono y título</span>
+          <span class="s0">Icon</span><span class="s2">(</span>
+            <span class="s0">Icons</span><span class="s2">.</span><span class="s0">file_upload</span><span class="s2">,</span>
+            <span class="s0">size</span><span class="s2">: </span><span class="s5">80</span><span class="s2">,</span>
+            <span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">blue</span><span class="s2">.</span><span class="s0">shade300</span><span class="s2">,</span>
+          <span class="s2">),</span>
+          <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">16</span><span class="s2">),</span>
+          <span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span>
+            <span class="s1">'Importar Datos desde Archivo'</span><span class="s2">,</span>
+            <span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span>
+              <span class="s0">fontSize</span><span class="s2">: </span><span class="s5">22</span><span class="s2">,</span>
+              <span class="s0">fontWeight</span><span class="s2">: </span><span class="s0">FontWeight</span><span class="s2">.</span><span class="s0">bold</span><span class="s2">,</span>
+            <span class="s2">),</span>
+            <span class="s0">textAlign</span><span class="s2">: </span><span class="s0">TextAlign</span><span class="s2">.</span><span class="s0">center</span><span class="s2">,</span>
+          <span class="s2">),</span>
+          <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">12</span><span class="s2">),</span>
+          <span class="s3">const </span><span class="s0">Padding</span><span class="s2">(</span>
+            <span class="s0">padding</span><span class="s2">: </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">symmetric</span><span class="s2">(</span><span class="s0">horizontal</span><span class="s2">: </span><span class="s5">20</span><span class="s2">),</span>
+            <span class="s0">child</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span>
+              <span class="s1">'Selecciona un archivo de respaldo (.suray) para restaurar sus datos en la aplicación'</span><span class="s2">,</span>
+              <span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span>
+                <span class="s0">fontSize</span><span class="s2">: </span><span class="s5">14</span><span class="s2">,</span>
+                <span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">grey</span><span class="s2">,</span>
+              <span class="s2">),</span>
+              <span class="s0">textAlign</span><span class="s2">: </span><span class="s0">TextAlign</span><span class="s2">.</span><span class="s0">center</span><span class="s2">,</span>
+            <span class="s2">),</span>
+          <span class="s2">),</span>
+          <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">24</span><span class="s2">),</span>
+
+          <span class="s4">// Botón para seleccionar archivo</span>
+          <span class="s0">ElevatedButton</span><span class="s2">.</span><span class="s0">icon</span><span class="s2">(</span>
+            <span class="s0">onPressed</span><span class="s2">: </span><span class="s0">_seleccionarArchivo</span><span class="s2">,</span>
+            <span class="s0">icon</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">file_open</span><span class="s2">),</span>
+            <span class="s0">label</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Seleccionar Archivo'</span><span class="s2">),</span>
+            <span class="s0">style</span><span class="s2">: </span><span class="s0">ElevatedButton</span><span class="s2">.</span><span class="s0">styleFrom</span><span class="s2">(</span>
+              <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">symmetric</span><span class="s2">(</span><span class="s0">vertical</span><span class="s2">: </span><span class="s5">12</span><span class="s2">),</span>
+              <span class="s0">shape</span><span class="s2">: </span><span class="s0">RoundedRectangleBorder</span><span class="s2">(</span>
+                <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">8</span><span class="s2">),</span>
+              <span class="s2">),</span>
+            <span class="s2">),</span>
+          <span class="s2">),</span>
+          <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">16</span><span class="s2">),</span>
+
+          <span class="s4">// Mostrar archivo seleccionado</span>
+          <span class="s3">if </span><span class="s2">(</span><span class="s0">_archivoSeleccionado</span><span class="s2">) </span><span class="s0">...</span><span class="s2">[</span>
+            <span class="s0">Container</span><span class="s2">(</span>
+              <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">all</span><span class="s2">(</span><span class="s5">12</span><span class="s2">),</span>
+              <span class="s0">decoration</span><span class="s2">: </span><span class="s0">BoxDecoration</span><span class="s2">(</span>
+                <span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">grey</span><span class="s2">.</span><span class="s0">shade100</span><span class="s2">,</span>
+                <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">8</span><span class="s2">),</span>
+                <span class="s0">border</span><span class="s2">: </span><span class="s0">Border</span><span class="s2">.</span><span class="s0">all</span><span class="s2">(</span><span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">grey</span><span class="s2">.</span><span class="s0">shade300</span><span class="s2">),</span>
+              <span class="s2">),</span>
+              <span class="s0">child</span><span class="s2">: </span><span class="s0">Column</span><span class="s2">(</span>
+                <span class="s0">crossAxisAlignment</span><span class="s2">: </span><span class="s0">CrossAxisAlignment</span><span class="s2">.</span><span class="s0">start</span><span class="s2">,</span>
+                <span class="s0">children</span><span class="s2">: [</span>
+                  <span class="s0">Text</span><span class="s2">(</span>
+                    <span class="s1">'Archivo seleccionado'</span><span class="s2">,</span>
+                    <span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span>
+                      <span class="s0">fontSize</span><span class="s2">: </span><span class="s5">14</span><span class="s2">,</span>
+                      <span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">grey</span><span class="s2">.</span><span class="s0">shade700</span><span class="s2">,</span>
+                    <span class="s2">),</span>
+                  <span class="s2">),</span>
+                  <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">4</span><span class="s2">),</span>
+                  <span class="s0">Text</span><span class="s2">(</span>
+                    <span class="s0">_mostrarVistaPrevia </span><span class="s2">? </span><span class="s1">'Contiene </span><span class="s2">${</span><span class="s0">_datosImportados</span><span class="s2">.</span><span class="s0">length</span><span class="s2">} </span><span class="s1">registros' </span><span class="s2">: </span><span class="s1">'No contiene datos válidos'</span><span class="s2">,</span>
+                    <span class="s0">style</span><span class="s2">: </span><span class="s0">TextStyle</span><span class="s2">(</span>
+                      <span class="s0">fontWeight</span><span class="s2">: </span><span class="s0">FontWeight</span><span class="s2">.</span><span class="s0">bold</span><span class="s2">,</span>
+                      <span class="s0">color</span><span class="s2">: </span><span class="s0">_mostrarVistaPrevia </span><span class="s2">? </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">green </span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">red</span><span class="s2">,</span>
+                    <span class="s2">),</span>
+                  <span class="s2">),</span>
+                <span class="s2">],</span>
+              <span class="s2">),</span>
+            <span class="s2">),</span>
+            <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">16</span><span class="s2">),</span>
+          <span class="s2">],</span>
+
+          <span class="s4">// Vista previa de los datos</span>
+          <span class="s3">if </span><span class="s2">(</span><span class="s0">_mostrarVistaPrevia </span><span class="s2">&amp;&amp; </span><span class="s0">_datosImportados</span><span class="s2">.</span><span class="s0">isNotEmpty</span><span class="s2">) </span><span class="s0">...</span><span class="s2">[</span>
+            <span class="s0">Expanded</span><span class="s2">(</span>
+              <span class="s0">child</span><span class="s2">: </span><span class="s0">Column</span><span class="s2">(</span>
+                <span class="s0">crossAxisAlignment</span><span class="s2">: </span><span class="s0">CrossAxisAlignment</span><span class="s2">.</span><span class="s0">start</span><span class="s2">,</span>
+                <span class="s0">children</span><span class="s2">: [</span>
+                  <span class="s0">Text</span><span class="s2">(</span>
+                    <span class="s1">'Vista previa de datos (</span><span class="s2">${</span><span class="s0">_datosImportados</span><span class="s2">.</span><span class="s0">length</span><span class="s2">} </span><span class="s1">registros):'</span><span class="s2">,</span>
+                    <span class="s0">style</span><span class="s2">: </span><span class="s3">const </span><span class="s0">TextStyle</span><span class="s2">(</span>
+                      <span class="s0">fontWeight</span><span class="s2">: </span><span class="s0">FontWeight</span><span class="s2">.</span><span class="s0">bold</span><span class="s2">,</span>
+                      <span class="s0">fontSize</span><span class="s2">: </span><span class="s5">16</span><span class="s2">,</span>
+                    <span class="s2">),</span>
+                  <span class="s2">),</span>
+                  <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">8</span><span class="s2">),</span>
+                  <span class="s0">Expanded</span><span class="s2">(</span>
+                    <span class="s0">child</span><span class="s2">: </span><span class="s0">Container</span><span class="s2">(</span>
+                      <span class="s0">decoration</span><span class="s2">: </span><span class="s0">BoxDecoration</span><span class="s2">(</span>
+                        <span class="s0">border</span><span class="s2">: </span><span class="s0">Border</span><span class="s2">.</span><span class="s0">all</span><span class="s2">(</span><span class="s0">color</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">grey</span><span class="s2">.</span><span class="s0">shade300</span><span class="s2">),</span>
+                        <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">8</span><span class="s2">),</span>
+                      <span class="s2">),</span>
+                      <span class="s0">child</span><span class="s2">: </span><span class="s0">ListView</span><span class="s2">.</span><span class="s0">builder</span><span class="s2">(</span>
+                        <span class="s0">itemCount</span><span class="s2">: </span><span class="s0">_datosImportados</span><span class="s2">.</span><span class="s0">length</span><span class="s2">,</span>
+                        <span class="s0">itemBuilder</span><span class="s2">: (</span><span class="s0">context</span><span class="s2">, </span><span class="s0">index</span><span class="s2">) {</span>
+                          <span class="s3">final </span><span class="s0">maquina </span><span class="s2">= </span><span class="s0">_datosImportados</span><span class="s2">[</span><span class="s0">index</span><span class="s2">];</span>
+                          <span class="s3">return </span><span class="s0">ListTile</span><span class="s2">(</span>
+                            <span class="s0">title</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'</span><span class="s2">${</span><span class="s0">maquina</span><span class="s2">[</span><span class="s1">'placa'</span><span class="s2">] ?? </span><span class="s1">'Sin placa'</span><span class="s2">} </span><span class="s1">- </span><span class="s2">${</span><span class="s0">maquina</span><span class="s2">[</span><span class="s1">'modelo'</span><span class="s2">] ?? </span><span class="s1">'Sin modelo'</span><span class="s2">}</span><span class="s1">'</span><span class="s2">),</span>
+                            <span class="s0">subtitle</span><span class="s2">: </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'ID: </span><span class="s2">${</span><span class="s0">maquina</span><span class="s2">[</span><span class="s1">'id'</span><span class="s2">] ?? </span><span class="s1">'Sin ID'</span><span class="s2">}</span><span class="s1">'</span><span class="s2">),</span>
+                            <span class="s0">leading</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">directions_bus</span><span class="s2">),</span>
+                          <span class="s2">);</span>
+                        <span class="s2">},</span>
+                      <span class="s2">),</span>
+                    <span class="s2">),</span>
+                  <span class="s2">),</span>
+                  <span class="s3">const </span><span class="s0">SizedBox</span><span class="s2">(</span><span class="s0">height</span><span class="s2">: </span><span class="s5">16</span><span class="s2">),</span>
+                  <span class="s0">ElevatedButton</span><span class="s2">.</span><span class="s0">icon</span><span class="s2">(</span>
+                    <span class="s0">onPressed</span><span class="s2">: </span><span class="s0">_importarDatos</span><span class="s2">,</span>
+                    <span class="s0">icon</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Icon</span><span class="s2">(</span><span class="s0">Icons</span><span class="s2">.</span><span class="s0">save</span><span class="s2">),</span>
+                    <span class="s0">label</span><span class="s2">: </span><span class="s3">const </span><span class="s0">Text</span><span class="s2">(</span><span class="s1">'Importar Datos'</span><span class="s2">),</span>
+                    <span class="s0">style</span><span class="s2">: </span><span class="s0">ElevatedButton</span><span class="s2">.</span><span class="s0">styleFrom</span><span class="s2">(</span>
+                      <span class="s0">backgroundColor</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">green</span><span class="s2">,</span>
+                      <span class="s0">foregroundColor</span><span class="s2">: </span><span class="s0">Colors</span><span class="s2">.</span><span class="s0">white</span><span class="s2">,</span>
+                      <span class="s0">padding</span><span class="s2">: </span><span class="s3">const </span><span class="s0">EdgeInsets</span><span class="s2">.</span><span class="s0">symmetric</span><span class="s2">(</span><span class="s0">vertical</span><span class="s2">: </span><span class="s5">12</span><span class="s2">),</span>
+                      <span class="s0">shape</span><span class="s2">: </span><span class="s0">RoundedRectangleBorder</span><span class="s2">(</span>
+                        <span class="s0">borderRadius</span><span class="s2">: </span><span class="s0">BorderRadius</span><span class="s2">.</span><span class="s0">circular</span><span class="s2">(</span><span class="s5">8</span><span class="s2">),</span>
+                      <span class="s2">),</span>
+                    <span class="s2">),</span>
+                  <span class="s2">),</span>
+                <span class="s2">],</span>
+              <span class="s2">),</span>
+            <span class="s2">),</span>
+          <span class="s2">],</span>
+        <span class="s2">],</span>
+      <span class="s2">),</span>
+    <span class="s2">);</span>
+  <span class="s2">}</span>
+<span class="s2">}</span></pre>
+</body>
+</html>
