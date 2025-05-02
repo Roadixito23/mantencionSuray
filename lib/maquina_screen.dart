@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'edit_maquina_screen.dart';
+import 'components/machine_card.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:path/path.dart' as path;
-import 'package:intl/intl.dart';
+import 'providers/theme_provider.dart';
+import 'package:animate_do/animate_do.dart';
+import 'package:file_picker/file_picker.dart'; // Added import
+import 'package:path/path.dart' as path; // Added import
+
 
 class MaquinaScreen extends StatefulWidget {
   const MaquinaScreen({Key? key}) : super(key: key);
@@ -17,7 +21,9 @@ class MaquinaScreen extends StatefulWidget {
 class _MaquinaScreenState extends State<MaquinaScreen> {
   // Lista de datos de máquinas (autobuses)
   List<Map<String, dynamic>> _maquinas = [];
+  List<Map<String, dynamic>> _maquinasFiltradas = [];
   bool _cargando = true;
+  String _textoFiltro = '';
 
   // Variable para controlar la máquina seleccionada en la vista horizontal
   int _maquinaSeleccionadaIndex = 0;
@@ -26,13 +32,9 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
   bool _mostrarFiltros = true;
   bool _mostrarOtrasRevisiones = true;
   bool _mostrarComentarios = true;
-
-  // Colores estándar
-  final Color _colorPrimario = Colors.blue;
-  final Color _colorAlerta = Colors.red;
-  final Color _colorFondo = Colors.white;
-  final Color _colorTextoSecundario = Colors.grey.shade600;
-  final Color _colorFondoSecundario = Colors.grey.shade50;
+  bool _mostrarSoloVencidos = false;
+  bool _mostrarSoloProximos = false;
+  bool _mostrarPanelFiltros = false;
 
   @override
   void initState() {
@@ -53,15 +55,13 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
         final List<dynamic> maquinasJson = jsonDecode(contenido);
         setState(() {
           _maquinas = maquinasJson.cast<Map<String, dynamic>>();
-          // Asegurarnos de que el índice seleccionado es válido
-          if (_maquinas.isNotEmpty) {
-            _maquinaSeleccionadaIndex = 0; // Seleccionar la primera máquina por defecto
-          }
+          _aplicarFiltros();
           _cargando = false;
         });
       } else {
         setState(() {
           _maquinas = [];
+          _maquinasFiltradas = [];
           _cargando = false;
         });
       }
@@ -69,15 +69,49 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
       print('Error al cargar máquinas: $e');
       setState(() {
         _maquinas = [];
+        _maquinasFiltradas = [];
         _cargando = false;
       });
     }
   }
 
-  // Método para seleccionar una máquina
-  void _seleccionarMaquina(int index) {
+  // Aplicar filtros de búsqueda y estado
+  void _aplicarFiltros() {
+    List<Map<String, dynamic>> resultado = List.from(_maquinas);
+
+    // Filtrar por texto
+    if (_textoFiltro.isNotEmpty) {
+      resultado = resultado.where((maquina) {
+        final placa = (maquina['placa'] ?? '').toString().toLowerCase();
+        final modelo = (maquina['modelo'] ?? '').toString().toLowerCase();
+        final id = (maquina['id'] ?? '').toString().toLowerCase();
+        final busqueda = _textoFiltro.toLowerCase();
+
+        return placa.contains(busqueda) ||
+            modelo.contains(busqueda) ||
+            id.contains(busqueda);
+      }).toList();
+    }
+
+    // Filtrar por vencidos o próximos
+    if (_mostrarSoloVencidos) {
+      resultado = resultado.where((maquina) {
+        final dias = _calcularDiasRestantes(maquina['fechaRevisionTecnica']);
+        return dias != null && dias < 0; // Vencidos
+      }).toList();
+    } else if (_mostrarSoloProximos) {
+      resultado = resultado.where((maquina) {
+        final dias = _calcularDiasRestantes(maquina['fechaRevisionTecnica']);
+        return dias != null && dias >= 0 && dias <= 30; // Próximos (30 días)
+      }).toList();
+    }
+
     setState(() {
-      _maquinaSeleccionadaIndex = index;
+      _maquinasFiltradas = resultado;
+      // Asegurarnos de que el índice seleccionado sea válido
+      if (_maquinasFiltradas.isNotEmpty) {
+        _maquinaSeleccionadaIndex = 0;
+      }
     });
   }
 
@@ -132,56 +166,9 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
     }
   }
 
-  // Método para verificar si una fecha está vencida o próxima a vencer
-  EstadoFecha _verificarFecha(String? fechaIso) {
-    if (fechaIso == null) {
-      return EstadoFecha.normal;
-    }
-
-    try {
-      final DateTime fechaRevision = DateTime.parse(fechaIso);
-      final DateTime ahora = DateTime.now();
-      final diferencia = fechaRevision.difference(ahora).inDays;
-
-      if (diferencia < 0) {
-        return EstadoFecha.vencida;
-      } else if (diferencia <= 30) {
-        return EstadoFecha.proxima;
-      } else {
-        return EstadoFecha.normal;
-      }
-    } catch (e) {
-      return EstadoFecha.normal;
-    }
-  }
-
-  // Obtener color según estado de fecha
-  Color _getColorEstadoFecha(String? fechaIso) {
-    final estado = _verificarFecha(fechaIso);
-
-    switch (estado) {
-      case EstadoFecha.vencida:
-        return _colorAlerta;
-      case EstadoFecha.proxima:
-        return Colors.orange;
-      case EstadoFecha.normal:
-        return _colorPrimario;
-    }
-  }
-
-  // Verificar si hay máquinas con revisión próxima a vencer (1 mes)
-  bool get _hayAlertasRevisionTecnica {
-    for (var maquina in _maquinas) {
-      final dias = _calcularDiasRestantes(maquina['fechaRevisionTecnica']);
-      if (dias != null && dias >= 0 && dias <= 30) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   // Agregar o editar comentario
   Future<void> _agregarComentario(Map<String, dynamic> maquina) async {
+    final theme = Theme.of(context);
     TextEditingController comentarioController = TextEditingController(
         text: maquina['comentario'] ?? ''
     );
@@ -193,28 +180,39 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
     return showDialog(
       context: context,
       builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: StatefulBuilder(
             builder: (BuildContext context, StateSetter setState) {
               return Container(
                 width: MediaQuery.of(context).size.width * 0.6,  // 60% del ancho de la ventana
                 height: MediaQuery.of(context).size.height * 0.7, // 70% del alto de la ventana
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.comment, color: _colorPrimario),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Comentarios - ${maquina['placa']} (${maquina['modelo']})',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                        Icon(Icons.comment, color: theme.colorScheme.primary),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Comentarios',
+                                style: theme.textTheme.headlineMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                '${maquina['placa']} - ${maquina['modelo']}',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const Spacer(),
                         IconButton(
                           icon: const Icon(Icons.close),
                           onPressed: () => Navigator.pop(context),
@@ -222,34 +220,48 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                         ),
                       ],
                     ),
-                    const Divider(),
-                    const SizedBox(height: 12),
+                    Divider(color: theme.dividerColor),
+                    const SizedBox(height: 16),
 
-                    const Text(
+                    Text(
                       'Ingrese comentarios sobre la máquina:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
 
                     // Campo de texto para comentarios
                     TextField(
                       controller: comentarioController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'Escriba sus comentarios aquí',
-                        border: OutlineInputBorder(),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: theme.colorScheme.outline),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
+                        ),
+                        filled: true,
+                        fillColor: theme.colorScheme.surface,
                       ),
                       maxLines: 5,
+                      style: theme.textTheme.bodyLarge,
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
 
                     // Sección de fotos
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'Fotos adjuntas:',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         TextButton.icon(
                           onPressed: () async {
@@ -262,23 +274,49 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                           },
                           icon: const Icon(Icons.add_photo_alternate),
                           label: const Text('Agregar fotos'),
-                          style: TextButton.styleFrom(foregroundColor: _colorPrimario),
+                          style: TextButton.styleFrom(
+                            foregroundColor: theme.colorScheme.primary,
+                          ),
                         ),
                       ],
                     ),
 
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
 
                     // Lista de fotos (con scroll)
                     Expanded(
                       child: fotos.isEmpty
                           ? Center(
-                        child: Text(
-                          'No hay fotos adjuntas',
-                          style: TextStyle(
-                            color: _colorTextoSecundario,
-                            fontStyle: FontStyle.italic,
-                          ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.photo_library_outlined,
+                              size: 64,
+                              color: theme.colorScheme.onSurface.withOpacity(0.3),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No hay fotos adjuntas',
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: () async {
+                                final nuevasFotos = await _seleccionarFotos();
+                                if (nuevasFotos.isNotEmpty) {
+                                  setState(() {
+                                    fotos.addAll(nuevasFotos);
+                                  });
+                                }
+                              },
+                              icon: const Icon(Icons.add_a_photo),
+                              label: const Text('Agregar fotos'),
+                            ),
+                          ],
                         ),
                       )
                           : GridView.builder(
@@ -295,18 +333,21 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                                 onTap: () => _verFoto(fotos[index]),
                                 child: Container(
                                   decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.grey.shade300),
-                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: theme.colorScheme.outline.withOpacity(0.3)),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(12),
                                     child: Image.file(
                                       File(fotos[index]),
                                       fit: BoxFit.cover,
                                       errorBuilder: (context, error, stackTrace) {
                                         return Container(
-                                          color: Colors.grey.shade200,
-                                          child: const Icon(Icons.broken_image),
+                                          color: theme.colorScheme.surfaceVariant,
+                                          child: Icon(
+                                            Icons.broken_image,
+                                            color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                                          ),
                                         );
                                       },
                                     ),
@@ -316,24 +357,26 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
 
                               // Botón para eliminar foto
                               Positioned(
-                                top: 0,
-                                right: 0,
-                                child: InkWell(
-                                  onTap: () {
-                                    setState(() {
-                                      fotos.removeAt(index);
-                                    });
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.5),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.close,
-                                      color: Colors.white,
-                                      size: 16,
+                                top: 4,
+                                right: 4,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.error,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: InkWell(
+                                    onTap: () {
+                                      setState(() {
+                                        fotos.removeAt(index);
+                                      });
+                                    },
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(4),
+                                      child: Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                        size: 16,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -354,7 +397,6 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                           onPressed: () => Navigator.pop(context),
                           child: const Text('Cancelar'),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: _colorTextoSecundario,
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                           ),
                         ),
@@ -371,18 +413,19 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                                 _maquinas[index]['fechaModificacion'] = DateTime.now().toIso8601String();
                               });
                               guardarMaquinas(_maquinas);
+                              _aplicarFiltros();
                             }
                             Navigator.pop(context);
 
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text('Comentario guardado con éxito'),
-                                backgroundColor: _colorPrimario,
+                              const SnackBar(
+                                content: Text('Comentario guardado con éxito'),
+                                backgroundColor: Colors.green,
                               ),
                             );
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: _colorPrimario,
+                            backgroundColor: theme.colorScheme.primary,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                           ),
@@ -401,9 +444,15 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
 
   // Método para seleccionar y agregar fotos
   Future<List<String>> _seleccionarFotos() async {
+    final theme = Theme.of(context);
     List<String> nuevasFotos = [];
+
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      setState(() {
+        _cargando = true;
+      });
+
+      final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: true,
       );
@@ -441,7 +490,7 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${result.files.length} fotos agregadas'),
-            backgroundColor: _colorPrimario,
+            backgroundColor: theme.colorScheme.primary,
           ),
         );
       }
@@ -450,22 +499,29 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error al seleccionar fotos: $e'),
-          backgroundColor: _colorAlerta,
+          backgroundColor: theme.colorScheme.error,
         ),
       );
+    } finally {
+      setState(() {
+        _cargando = false;
+      });
     }
+
     return nuevasFotos;
   }
 
   // Ver una foto en pantalla completa
   void _verFoto(String fotoPath) {
+    final theme = Theme.of(context);
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => Scaffold(
           appBar: AppBar(
             title: const Text('Visualizar Foto'),
-            backgroundColor: _colorPrimario,
+            backgroundColor: theme.colorScheme.primary,
             foregroundColor: Colors.white,
           ),
           body: Center(
@@ -481,9 +537,16 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                   return Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.broken_image, size: 80, color: _colorTextoSecundario),
+                      Icon(
+                          Icons.broken_image,
+                          size: 80,
+                          color: theme.colorScheme.onSurface.withOpacity(0.6)
+                      ),
                       const SizedBox(height: 16),
-                      Text('No se pudo cargar la imagen', style: TextStyle(color: _colorTextoSecundario)),
+                      Text(
+                        'No se pudo cargar la imagen',
+                        style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                      ),
                     ],
                   );
                 },
@@ -495,22 +558,232 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
     );
   }
 
-  bool get _hayDatos => _maquinas.isNotEmpty;
+  void _mostrarDialogoModelos() {
+    final theme = Theme.of(context);
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.6,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.filter_alt, color: theme.colorScheme.primary),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Modelos de Filtros y Revisiones',
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                    tooltip: 'Cerrar',
+                  ),
+                ],
+              ),
+              Divider(color: theme.dividerColor),
+              const SizedBox(height: 16),
+              Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.6,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: _maquinas.map((maquina) {
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: ExpansionTile(
+                          leading: Icon(
+                            Icons.directions_bus,
+                            color: theme.colorScheme.primary,
+                          ),
+                          title: Text(
+                            '${maquina['placa']} - ${maquina['modelo']}',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildModeloInfoRow('Filtro Aceite:', maquina['modeloFiltroAceite']),
+                            const Divider(height: 16),
+                            _buildModeloInfoRow('Filtro Aire:', maquina['modeloFiltroAire']),
+                            const Divider(height: 16),
+                            _buildModeloInfoRow('Filtro Petróleo:', maquina['modeloFiltroPetroleo']),
+                            const Divider(height: 16),
+                            _buildModeloInfoRow('Decantador:', maquina['modeloDecantador']),
+
+                            // Mostrar correas
+                            if (maquina['correas'] != null && (maquina['correas'] as List).isNotEmpty) ...[
+                              const Divider(height: 16),
+                              _buildModeloInfoRow(
+                                  'Correa Principal:',
+                                  (maquina['correas'] as List).first['modelo']
+                              ),
+                              // Mostrar correas adicionales
+                              if ((maquina['correas'] as List).length > 1) ...[
+                                for (int i = 1; i < (maquina['correas'] as List).length; i++) ...[
+                                  const Divider(height: 16),
+                                  _buildModeloInfoRow(
+                                      'Correa ${i+1}:',
+                                      (maquina['correas'] as List)[i]['modelo']
+                                  ),
+                                ]
+                              ]
+                            ] else if (maquina['modeloCorrea'] != null) ...[
+                              const Divider(height: 16),
+                              _buildModeloInfoRow('Correa:', maquina['modeloCorrea']),
+                            ],
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Align(
+                alignment: Alignment.centerRight,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Cerrar'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModeloInfoRow(String titulo, String? modelo) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Text(
+            titulo,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            modelo ?? 'No especificado',
+            style: theme.textTheme.bodyMedium,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Diálogo para eliminar máquina
+  void _mostrarDialogoEliminar(Map<String, dynamic> maquina) {
+    final theme = Theme.of(context);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Eliminar Máquina',
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.warning,
+              color: theme.colorScheme.error,
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '¿Estás seguro de que deseas eliminar la máquina?',
+              style: theme.textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${maquina['placa']} - ${maquina['modelo']}',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Esta acción no se puede deshacer.',
+              style: TextStyle(
+                color: theme.colorScheme.error,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.error,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              setState(() {
+                _maquinas.removeWhere((m) => m['id'] == maquina['id']);
+                _aplicarFiltros();
+              });
+
+              await guardarMaquinas(_maquinas);
+              Navigator.pop(context);
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Máquina eliminada con éxito'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final themeProvider = Provider.of<ThemeProvider>(context);
     final mediaQuery = MediaQuery.of(context);
     final isHorizontal = mediaQuery.size.width > mediaQuery.size.height;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Listado de Máquinas'),
+        title: const Text('Máquinas Registradas'),
         centerTitle: true,
-        elevation: 0,
-        backgroundColor: _colorPrimario,
-        foregroundColor: Colors.white,
         actions: [
-          // Menú de modelos de filtros y revisiones
           IconButton(
             icon: const Icon(Icons.filter_list),
             tooltip: 'Modelos de filtros y revisiones',
@@ -518,6 +791,18 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
               _mostrarDialogoModelos();
             },
           ),
+
+          // Botón para mostrar panel de filtros
+          IconButton(
+            icon: Icon(_mostrarPanelFiltros ? Icons.filter_alt_off : Icons.filter_alt),
+            tooltip: _mostrarPanelFiltros ? 'Ocultar filtros' : 'Mostrar filtros',
+            onPressed: () {
+              setState(() {
+                _mostrarPanelFiltros = !_mostrarPanelFiltros;
+              });
+            },
+          ),
+
           // Botón de opciones de visualización
           PopupMenuButton<String>(
             icon: const Icon(Icons.visibility),
@@ -555,36 +840,46 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
               ),
             ],
           ),
-        ],
-        bottom: _hayAlertasRevisionTecnica ? PreferredSize(
-          preferredSize: const Size.fromHeight(40),
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            color: _colorAlerta.withOpacity(0.1),
-            width: double.infinity,
-            child: Row(
-              children: [
-                Icon(Icons.warning, color: _colorAlerta),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    '¡Tienes máquinas con revisión técnica próxima a vencer!',
-                    style: TextStyle(
-                      color: _colorAlerta,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+
+          // Botón de tema
+          IconButton(
+            icon: Icon(themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode),
+            tooltip: 'Cambiar tema',
+            onPressed: () {
+              themeProvider.toggleTheme();
+            },
           ),
-        ) : null,
+        ],
       ),
       body: _cargando
-          ? Center(child: CircularProgressIndicator(color: _colorPrimario))
-          : (_hayDatos
-          ? _construirListaDatos(isHorizontal)
-          : _construirMensajeVacio()),
+          ? Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: theme.colorScheme.primary),
+            const SizedBox(height: 16),
+            Text(
+              'Cargando máquinas...',
+              style: theme.textTheme.titleMedium,
+            ),
+          ],
+        ),
+      )
+          : Column(
+        children: [
+          // Panel de búsqueda y filtros (condicional)
+          if (_mostrarPanelFiltros) _buildFilterPanel(theme),
+
+          // Lista de máquinas
+          Expanded(
+            child: _maquinas.isEmpty
+                ? _buildMensajeVacio(theme)
+                : isHorizontal
+                ? _buildHorizontalLayout(theme)
+                : _buildVerticalLayout(theme),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
@@ -601,6 +896,7 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                       // Si no existe, agregarla
                       _maquinas.add(nuevaMaquina);
                     }
+                    _aplicarFiltros();
                   });
                   guardarMaquinas(_maquinas);
                 },
@@ -608,1513 +904,809 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
             ),
           ).then((_) => _cargarMaquinas());
         },
-        backgroundColor: _colorPrimario,
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: Colors.white,
         child: const Icon(Icons.add),
         tooltip: 'Agregar Nueva Máquina',
       ),
     );
   }
 
-  void _mostrarDialogoModelos() {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.6,
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.filter_alt, color: _colorPrimario),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Modelos de Filtros y Revisiones',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+  Widget _buildFilterPanel(ThemeData theme) {
+    return FadeInDown(
+      duration: const Duration(milliseconds: 200),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // Campo de búsqueda
+            TextField(
+              decoration: InputDecoration(
+                hintText: 'Buscar por placa, modelo o ID...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: theme.colorScheme.background,
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+              ),
+              onChanged: (valor) {
+                setState(() {
+                  _textoFiltro = valor;
+                  _aplicarFiltros();
+                });
+              },
+            ),
+
+            const SizedBox(height: 16),
+
+            // Opciones de filtro
+            Row(
+              children: [
+                FilterChip(
+                  label: const Text('Solo vencidas'),
+                  selected: _mostrarSoloVencidos,
+                  onSelected: (selected) {
+                    setState(() {
+                      _mostrarSoloVencidos = selected;
+                      if (selected) {
+                        _mostrarSoloProximos = false;
+                      }
+                      _aplicarFiltros();
+                    });
+                  },
+                  selectedColor: Colors.red.withOpacity(0.2),
+                  checkmarkColor: Colors.red,
+                  avatar: _mostrarSoloVencidos ? const Icon(Icons.warning, size: 18, color: Colors.red) : null,
+                ),
+                const SizedBox(width: 8),
+                FilterChip(
+                  label: const Text('Próximas a vencer'),
+                  selected: _mostrarSoloProximos,
+                  onSelected: (selected) {
+                    setState(() {
+                      _mostrarSoloProximos = selected;
+                      if (selected) {
+                        _mostrarSoloVencidos = false;
+                      }
+                      _aplicarFiltros();
+                    });
+                  },
+                  selectedColor: Colors.orange.withOpacity(0.2),
+                  checkmarkColor: Colors.orange,
+                  avatar: _mostrarSoloProximos ? const Icon(Icons.access_time, size: 18, color: Colors.orange) : null,
+                ),
+                const Spacer(),
+
+                if (_mostrarSoloProximos || _mostrarSoloVencidos || _textoFiltro.isNotEmpty)
+                  TextButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _mostrarSoloVencidos = false;
+                        _mostrarSoloProximos = false;
+                        _textoFiltro = '';
+                        _aplicarFiltros();
+                      });
+                    },
+                    icon: const Icon(Icons.clear, size: 18),
+                    label: const Text('Limpiar filtros'),
                   ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                    tooltip: 'Cerrar',
+              ],
+            ),
+
+            // Mostrar resultados de filtro
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.filter_list,
+                    size: 16,
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Mostrando ${_maquinasFiltradas.length} de ${_maquinas.length} máquinas',
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      fontSize: 14,
+                    ),
                   ),
                 ],
               ),
-              const Divider(),
-              const SizedBox(height: 8),
-              Container(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.6,
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: _maquinas.map((maquina) {
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHorizontalLayout(ThemeData theme) {
+    return Row(
+      children: [
+        // Panel lateral con lista de máquinas
+        Container(
+          width: MediaQuery.of(context).size.width * 0.3,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            border: Border(
+              right: BorderSide(color: theme.colorScheme.outline.withOpacity(0.2)),
+            ),
+          ),
+          child: Column(
+            children: [
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _cargarMaquinas,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(8),
+                    itemCount: _maquinasFiltradas.length,
+                    itemBuilder: (context, index) {
+                      final maquina = _maquinasFiltradas[index];
+                      final bool estaSeleccionada = index == _maquinaSeleccionadaIndex;
+
                       return Card(
                         margin: const EdgeInsets.only(bottom: 8),
-                        child: ExpansionTile(
-                          title: Text('${maquina['placa']} - ${maquina['modelo']}'),
-                          leading: const Icon(Icons.directions_bus),
-                          childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          children: [
-                            _construirInfoModelo('Filtro Aceite:', maquina['modeloFiltroAceite']),
-                            _construirInfoModelo('Filtro Aire:', maquina['modeloFiltroAire']),
-                            _construirInfoModelo('Filtro Petróleo:', maquina['modeloFiltroPetroleo']),
-                            _construirInfoModelo('Decantador:', maquina['modeloDecantador']),
-                            if (maquina['correas'] != null && (maquina['correas'] as List).isNotEmpty)
-                              _construirInfoModelo('Correa:', (maquina['correas'] as List).first['modelo']),
-                            if (maquina['modeloCorrea'] != null)
-                              _construirInfoModelo('Correa:', maquina['modeloCorrea']),
-                          ],
+                        color: estaSeleccionada
+                            ? theme.colorScheme.primary.withOpacity(0.1)
+                            : null,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: estaSeleccionada
+                                ? theme.colorScheme.primary
+                                : Colors.transparent,
+                            width: estaSeleccionada ? 2 : 0,
+                          ),
+                        ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.all(12),
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: _getEstadoColor(maquina).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.directions_bus,
+                              color: _getEstadoColor(maquina),
+                            ),
+                          ),
+                          title: Text(
+                            maquina['placa'] ?? 'Sin placa',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: estaSeleccionada
+                                  ? theme.colorScheme.primary
+                                  : null,
+                            ),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(maquina['modelo'] ?? 'Sin modelo'),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today,
+                                    size: 12,
+                                    color: _getColorFecha(maquina['fechaRevisionTecnica']),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _formatearFecha(maquina['fechaRevisionTecnica']),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: _getColorFecha(maquina['fechaRevisionTecnica']),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          onTap: () {
+                            setState(() {
+                              _maquinaSeleccionadaIndex = index;
+                            });
+                          },
                         ),
                       );
-                    }).toList(),
+                    },
                   ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _colorPrimario,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('Cerrar'),
                 ),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
 
-  Widget _construirInfoModelo(String titulo, String? modelo) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Text(
-            titulo,
-            style: const TextStyle(fontWeight: FontWeight.bold),
+        // Panel de detalle de la máquina seleccionada
+        if (_maquinasFiltradas.isNotEmpty)
+          Expanded(
+            child: _buildMachineDetail(_maquinasFiltradas[_maquinaSeleccionadaIndex], theme),
           ),
-          const SizedBox(width: 8),
-          Text(modelo ?? 'No especificado'),
-        ],
-      ),
+      ],
     );
   }
 
-  // Método para obtener texto corto para modelo (evitar desbordamiento)
-  String _getModeloCorto(String? modelo) {
-    if (modelo == null || modelo.isEmpty) {
-      return 'N/E';
-    }
-    return modelo.length > 10 ? '${modelo.substring(0, 8)}...' : modelo;
-  }
+  Widget _buildMachineDetail(Map<String, dynamic> maquina, ThemeData theme) {
+    final List<String> fotos = maquina['fotos'] != null ? List<String>.from(maquina['fotos']) : [];
 
-  Widget _construirListaDatos(bool isHorizontal) {
-    if (isHorizontal) {
-      // Diseño optimizado para modo horizontal (Windows)
-      return _construirListaDatosHorizontal();
-    } else {
-      // Diseño original para modo vertical (móvil) con mejoras
-      return _construirListaDatosVertical();
-    }
-  }
-
-  // Vista optimizada para Windows (horizontal)
-  Widget _construirListaDatosHorizontal() {
-    return Row(
-        children: [
-    // Panel lateral con lista de máquinas (30% del ancho)
-    Container(
-    width: MediaQuery.of(context).size.width * 0.3,
-    decoration: BoxDecoration(
-    color: _colorFondoSecundario,
-    border: Border(
-    right: BorderSide(color: Colors.grey.shade300),
-    ),
-    ),
-    child: Column(
-    children: [
-    // Barra de búsqueda
-    Padding(
-    padding: const EdgeInsets.all(16.0),
-    child: TextField(
-    decoration: InputDecoration(
-    hintText: 'Buscar máquina...',
-    prefixIcon: const Icon(Icons.search),
-    border: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(10),
-    borderSide: BorderSide.none,
-    ),
-    filled: true,
-    fillColor: Colors.white,
-    contentPadding: const EdgeInsets.symmetric(vertical: 0),
-    ),
-    // Implementar lógica de búsqueda si se requiere
-    ),
-    ),
-      // Lista de máquinas
-      Expanded(
-        child: RefreshIndicator(
-          onRefresh: _cargarMaquinas,
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            itemCount: _maquinas.length,
-            itemBuilder: (context, index) {
-              final maquina = _maquinas[index];
-              final diasRestantes = _calcularDiasRestantes(maquina['fechaRevisionTecnica']);
-              final estadoFecha = _verificarFecha(maquina['fechaRevisionTecnica']);
-              final bool hayAlerta = estadoFecha != EstadoFecha.normal;
-              final Color colorAlerta = estadoFecha == EstadoFecha.vencida ? _colorAlerta : Colors.orange;
-              final bool estaSeleccionada = index == _maquinaSeleccionadaIndex;
-
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(
-                    color: estaSeleccionada
-                        ? _colorPrimario
-                        : (hayAlerta ? colorAlerta : Colors.transparent),
-                    width: estaSeleccionada || hayAlerta ? 1.5 : 0,
+    return Container(
+      padding: const EdgeInsets.all(24),
+      color: theme.colorScheme.background,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Encabezado con información principal
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Icono y estado
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: _getEstadoColor(maquina).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    Icons.directions_bus,
+                    size: 48,
+                    color: _getEstadoColor(maquina),
                   ),
                 ),
-                color: estaSeleccionada ? _colorPrimario.withOpacity(0.05) : null,
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: hayAlerta
-                          ? colorAlerta.withOpacity(0.1)
-                          : (maquina['estado'] == 'Activo'
-                          ? _colorPrimario.withOpacity(0.1)
-                          : Colors.orange.withOpacity(0.1)),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.directions_bus,
-                      color: hayAlerta
-                          ? colorAlerta
-                          : (maquina['estado'] == 'Activo'
-                          ? _colorPrimario
-                          : Colors.orange),
-                      size: 28,
-                    ),
-                  ),
-                  title: Text(
-                    maquina['placa'] ?? 'Sin placa',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: estaSeleccionada
-                          ? _colorPrimario
-                          : (hayAlerta ? colorAlerta : null),
-                    ),
-                  ),
-                  subtitle: Column(
+                const SizedBox(width: 24),
+
+                // Información principal
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        maquina['modelo'] ?? 'Sin modelo',
-                        style: TextStyle(
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(
-                              Icons.calendar_today,
-                              size: 12,
-                              color: hayAlerta ? colorAlerta : _colorPrimario
-                          ),
-                          const SizedBox(width: 4),
                           Text(
-                            _formatearFecha(maquina['fechaRevisionTecnica']),
-                            style: TextStyle(
-                              color: hayAlerta ? colorAlerta : null,
-                              fontSize: 12,
+                            maquina['placa'] ?? 'Sin placa',
+                            style: theme.textTheme.displaySmall?.copyWith(
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
+                          const SizedBox(width: 16),
+                          _buildStatusBadge(maquina['estado'] ?? 'Sin estado'),
+                        ],
+                      ),
+                      Text(
+                        maquina['modelo'] ?? 'Sin modelo',
+                        style: theme.textTheme.titleLarge,
+                      ),
+                      Text(
+                        'ID: ${maquina['id'] ?? 'No especificado'}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.7),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          _buildInfoChip(
+                            theme: theme,
+                            icon: Icons.people,
+                            label: 'Capacidad',
+                            value: '${maquina['capacidad'] ?? 0} pasajeros',
+                          ),
+                          const SizedBox(width: 16),
+                          _buildInfoChip(
+                            theme: theme,
+                            icon: Icons.speed,
+                            label: 'Kilometraje',
+                            value: '${maquina['kilometraje'] ?? 0} km',
+                          ),
+                          if (maquina['bin'] != null && maquina['bin'].toString().isNotEmpty) ...[
+                            const SizedBox(width: 16),
+                            _buildInfoChip(
+                              theme: theme,
+                              icon: Icons.credit_card,
+                              label: 'BIN',
+                              value: maquina['bin'],
+                            ),
+                          ],
                         ],
                       ),
                     ],
                   ),
-                  trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: maquina['estado'] == 'Activo'
-                          ? Colors.green.withOpacity(0.1)
-                          : Colors.orange.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: maquina['estado'] == 'Activo'
-                            ? Colors.green
-                            : Colors.orange,
-                      ),
-                    ),
-                    child: Text(
-                      maquina['estado'] ?? 'Sin estado',
-                      style: TextStyle(
-                        color: maquina['estado'] == 'Activo'
-                            ? Colors.green.shade700
-                            : Colors.orange.shade700,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                  onTap: () {
-                    // Seleccionar esta máquina
-                    _seleccionarMaquina(index);
-                  },
                 ),
-              );
-            },
-          ),
-        ),
-      ),
-    ],
-    ),
-    ),
 
-          // Panel de detalle de la máquina seleccionada (70% del ancho)
-          Expanded(
-            child: _maquinas.isEmpty
-                ? Center(
-              child: Text(
-                'Seleccione una máquina para ver detalles',
-                style: TextStyle(color: _colorTextoSecundario),
-              ),
-            )
-                : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: _construirDetalleMaquina(_maquinas[_maquinaSeleccionadaIndex]),  // Mostrar la máquina seleccionada
+                // Botones de acción
+                Column(
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        Icons.edit,
+                        color: theme.colorScheme.primary,
+                      ),
+                      tooltip: 'Editar máquina',
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => EditMaquinaScreen(
+                              maquinaExistente: maquina,
+                              onSave: (maquinaActualizada) {
+                                setState(() {
+                                  final index = _maquinas.indexWhere(
+                                          (m) => m['id'] == maquinaActualizada['id']
+                                  );
+                                  if (index != -1) {
+                                    _maquinas[index] = maquinaActualizada;
+                                    _aplicarFiltros();
+                                  }
+                                });
+                                guardarMaquinas(_maquinas);
+                              },
+                            ),
+                          ),
+                        ).then((_) => _cargarMaquinas());
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    IconButton(
+                      icon: Icon(
+                        Icons.delete,
+                        color: theme.colorScheme.error,
+                      ),
+                      tooltip: 'Eliminar máquina',
+                      onPressed: () {
+                        _mostrarDialogoEliminar(maquina);
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    IconButton(
+                      icon: Icon(
+                        Icons.comment,
+                        color: theme.colorScheme.secondary,
+                      ),
+                      tooltip: 'Editar comentarios',
+                      onPressed: () {
+                        _agregarComentario(maquina);
+                      },
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ),
-        ],
-    );
-  }
 
-  // Widget para mostrar el detalle de una máquina en el panel derecho
-  Widget _construirDetalleMaquina(Map<String, dynamic> maquina) {
-    final diasRestantes = _calcularDiasRestantes(maquina['fechaRevisionTecnica']);
-    final estadoFecha = _verificarFecha(maquina['fechaRevisionTecnica']);
-    final bool hayAlerta = estadoFecha != EstadoFecha.normal;
-    final Color colorAlerta = estadoFecha == EstadoFecha.vencida ? _colorAlerta : Colors.orange;
+            const SizedBox(height: 32),
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Encabezado con información principal
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Icono y estado
+            // Revisión técnica
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: hayAlerta
-                    ? colorAlerta.withOpacity(0.1)
-                    : (maquina['estado'] == 'Activo'
-                    ? _colorPrimario.withOpacity(0.1)
-                    : Colors.orange.withOpacity(0.1)),
-                borderRadius: BorderRadius.circular(12),
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: _getColorFecha(maquina['fechaRevisionTecnica']).withOpacity(0.5),
+                ),
               ),
-              child: Icon(
-                Icons.directions_bus,
-                size: 48,
-                color: hayAlerta
-                    ? colorAlerta
-                    : (maquina['estado'] == 'Activo' ? _colorPrimario : Colors.orange),
-              ),
-            ),
-
-            const SizedBox(width: 20),
-
-            // Información principal
-            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Text(
-                        maquina['placa'] ?? 'Sin placa',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: hayAlerta ? colorAlerta : null,
-                        ),
+                      Icon(
+                        Icons.safety_check,
+                        color: _getColorFecha(maquina['fechaRevisionTecnica']),
                       ),
                       const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: maquina['estado'] == 'Activo'
-                              ? Colors.green.withOpacity(0.1)
-                              : Colors.orange.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: maquina['estado'] == 'Activo'
-                                ? Colors.green
-                                : Colors.orange,
-                          ),
-                        ),
-                        child: Text(
-                          maquina['estado'] ?? 'Sin estado',
-                          style: TextStyle(
-                            color: maquina['estado'] == 'Activo'
-                                ? Colors.green.shade700
-                                : Colors.orange.shade700,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      Text(
+                        'Revisión Técnica',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: _getColorFecha(maquina['fechaRevisionTecnica']),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Modelo: ${maquina['modelo'] ?? 'No especificado'}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text('ID: ${maquina['id'] ?? 'No especificado'}'),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 16),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _infoItem(
-                        Icons.people,
-                        'Capacidad',
-                        '${maquina['capacidad'] ?? 0} pasajeros',
-                      ),
-                      const SizedBox(width: 24),
-                      _infoItem(
-                        Icons.speed,
-                        'Kilometraje',
-                        '${maquina['kilometraje'] ?? 0} km',
-                      ),
-                      if (maquina['bin'] != null && maquina['bin'].toString().isNotEmpty) ...[
-                        const SizedBox(width: 24),
-                        _infoItem(
-                          Icons.numbers,
-                          'Número BIN',
-                          maquina['bin'] ?? '',
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // Botones de acción
-            Column(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.edit),
-                  tooltip: 'Editar máquina',
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => EditMaquinaScreen(
-                          maquinaExistente: maquina,
-                          onSave: (maquinaActualizada) {
-                            setState(() {
-                              final index = _maquinas.indexWhere(
-                                      (m) => m['id'] == maquinaActualizada['id']
-                              );
-                              if (index != -1) {
-                                _maquinas[index] = maquinaActualizada;
-                              }
-                            });
-                            guardarMaquinas(_maquinas);
-                          },
-                        ),
-                      ),
-                    ).then((_) => _cargarMaquinas());
-                  },
-                ),
-                const SizedBox(height: 8),
-                IconButton(
-                  icon: const Icon(Icons.delete),
-                  tooltip: 'Eliminar máquina',
-                  color: _colorAlerta,
-                  onPressed: () {
-                    _mostrarDialogoEliminar(maquina);
-                  },
-                ),
-              ],
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 20),
-
-        // Tarjeta de revisión técnica
-        Card(
-          elevation: 3,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: hayAlerta ? colorAlerta : Colors.grey.shade300,
-              width: hayAlerta ? 1.5 : 1,
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.safety_check,
-                      color: hayAlerta ? colorAlerta : _colorPrimario,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Revisión Técnica',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: hayAlerta ? colorAlerta : Colors.black,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Fecha de última revisión:',
-                            style: TextStyle(
-                              fontSize: 14,
+                          Text(
+                            'Fecha de revisión:',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurface.withOpacity(0.7),
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             _formatearFecha(maquina['fechaRevisionTecnica']),
-                            style: TextStyle(
-                              fontSize: 16,
+                            style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
-                              color: hayAlerta ? colorAlerta : null,
+                              color: _getColorFecha(maquina['fechaRevisionTecnica']),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    if (diasRestantes != null)
-                      _buildDiasRestantes(diasRestantes),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        // Secciones condicionales (filtros, revisiones, etc.)
-        if (_mostrarFiltros)
-          _construirSeccionFiltros(maquina),
-
-        if (_mostrarOtrasRevisiones)
-          _construirSeccionOtrasRevisiones(maquina),
-
-        if (_mostrarComentarios)
-          _construirSeccionComentarios(maquina),
-      ],
-    );
-  }
-
-  // Obtener texto de alerta para mostrar días restantes
-  Widget _buildDiasRestantes(int? dias) {
-    if (dias == null) {
-      return Text(
-        'Sin fecha programada',
-        style: TextStyle(
-          color: _colorTextoSecundario,
-          fontSize: 12,
-        ),
-      );
-    }
-
-    final bool esVencido = dias < 0;
-    final String textoMostrar = esVencido
-        ? 'Vencido hace ${-dias} días'
-        : 'Faltan $dias días';
-    final Color colorTexto = dias < 0
-        ? _colorAlerta
-        : (dias <= 30 ? Colors.orange : Colors.green);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: colorTexto.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colorTexto),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            esVencido ? Icons.warning : Icons.access_time,
-            size: 16,
-            color: colorTexto,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            textoMostrar,
-            style: TextStyle(
-              color: colorTexto,
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Sección de filtros para vista horizontal
-  Widget _construirSeccionFiltros(Map<String, dynamic> maquina) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.filter_alt, color: _colorPrimario),
-            const SizedBox(width: 8),
-            const Text(
-              'Mantenimiento de Filtros',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        // Grid de filtros
-        Row(
-          children: [
-            Expanded(
-              child: _tarjetaFiltro(
-                'Filtro de Aceite',
-                maquina['modeloFiltroAceite'] ?? 'No especificado',
-                _formatearFecha(maquina['fechaCambioFiltroAceite']),
-                Icons.oil_barrel,
-                _getColorEstadoFecha(maquina['fechaCambioFiltroAceite']),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _tarjetaFiltro(
-                'Filtro de Aire',
-                maquina['modeloFiltroAire'] ?? 'No especificado',
-                _formatearFecha(maquina['fechaCambioFiltroAire']),
-                Icons.air,
-                _getColorEstadoFecha(maquina['fechaCambioFiltroAire']),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _tarjetaFiltro(
-                'Filtro de Petróleo',
-                maquina['modeloFiltroPetroleo'] ?? 'No especificado',
-                _formatearFecha(maquina['fechaCambioFiltroPetroleo']),
-                Icons.local_gas_station,
-                _getColorEstadoFecha(maquina['fechaCambioFiltroPetroleo']),
-              ),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 20),
-      ],
-    );
-  }
-
-  // Widget para tarjeta de filtro
-  Widget _tarjetaFiltro(String titulo, String modelo, String fecha, IconData icono, Color color) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: color == _colorPrimario ? Colors.grey.shade300 : color.withOpacity(0.5),
-          width: color == _colorPrimario ? 1 : 1.5,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icono, color: color),
-                const SizedBox(width: 8),
-                Text(
-                  titulo,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: color,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Text(
-                  'Modelo: ',
-                  style: TextStyle(
-                    color: Colors.grey,
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    modelo,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Text(
-                  'Último cambio: ',
-                  style: TextStyle(
-                    color: Colors.grey,
-                  ),
-                ),
-                Text(
-                  fecha,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    color: color == _colorPrimario ? null : color,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Sección de otras revisiones para vista horizontal
-  Widget _construirSeccionOtrasRevisiones(Map<String, dynamic> maquina) {
-    // Obtener las correas (nueva estructura o antigua)
-    List<Map<String, dynamic>> correas = [];
-    if (maquina['correas'] != null && maquina['correas'] is List) {
-      correas = List<Map<String, dynamic>>.from(maquina['correas']);
-    } else if (maquina['modeloCorrea'] != null) {
-      correas = [{
-        'modelo': maquina['modeloCorrea'],
-        'fecha': maquina['fechaRevisionCorrea'],
-      }];
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.build, color: _colorPrimario),
-            const SizedBox(width: 8),
-            const Text(
-              'Otras Revisiones',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        // Grid de revisiones
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _tarjetaFiltro(
-                'Decantador',
-                maquina['modeloDecantador'] ?? 'No especificado',
-                _formatearFecha(maquina['fechaRevisionDecantador']),
-                Icons.water_drop,
-                _getColorEstadoFecha(maquina['fechaRevisionDecantador']),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              // Mostrar primera correa en la vista principal
-              child: correas.isNotEmpty
-                  ? _tarjetaFiltro(
-                'Correa Principal',
-                correas.first['modelo'] ?? 'No especificado',
-                _formatearFecha(correas.first['fecha']),
-                Icons.settings_input_component,
-                _getColorEstadoFecha(correas.first['fecha']),
-              )
-                  : _tarjetaFiltro(
-                'Correa',
-                'No especificado',
-                'No registrada',
-                Icons.settings_input_component,
-                _colorPrimario,
-              ),
-            ),
-            const SizedBox(width: 16),
-            // Espacio para mantener la simetría en el diseño
-            Expanded(child: Container()),
-          ],
-        ),
-
-        // Mostrar el resto de correas si hay más de una
-        if (correas.length > 1) ...[
-          const SizedBox(height: 12),
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Correas adicionales:',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: correas.length - 1, // Excluir la primera que ya se mostró
-                    separatorBuilder: (context, index) => const Divider(height: 24),
-                    itemBuilder: (context, i) {
-                      final index = i + 1; // Comenzar desde la segunda correa
-                      final correa = correas[index];
-                      final color = _getColorEstadoFecha(correa['fecha']);
-
-                      return Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: color.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(Icons.settings_input_component, size: 20, color: color),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Correa ${index + 1}',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: color,
-                                  ),
-                                ),
-                                Text(
-                                  'Modelo: ${correa['modelo'] ?? 'No especificado'}',
-                                  style: const TextStyle(fontSize: 14),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              const Text(
-                                'Última revisión:',
-                                style: TextStyle(fontSize: 12, color: Colors.grey),
-                              ),
-                              Text(
-                                _formatearFecha(correa['fecha']),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: color == _colorPrimario ? null : color,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      );
-                    },
+                      _buildDaysRemainingIndicator(maquina['fechaRevisionTecnica']),
+                    ],
                   ),
                 ],
               ),
             ),
-          ),
-        ],
 
-        const SizedBox(height: 20),
-      ],
-    );
-  }
+            if (_mostrarFiltros) ...[
+              const SizedBox(height: 32),
 
-  // Sección de comentarios para vista horizontal
-  Widget _construirSeccionComentarios(Map<String, dynamic> maquina) {
-    // Extraer fotos y comentarios
-    final List<String> fotos = maquina['fotos'] != null ?
-    List<String>.from(maquina['fotos']) : [];
-    final String comentario = maquina['comentario'] ?? '';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.comment, color: _colorPrimario),
-                const SizedBox(width: 8),
-                const Text(
-                  'Comentarios',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+              // Filtros
+              Text(
+                'Filtros',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
-              ],
-            ),
-            TextButton.icon(
-              onPressed: () => _agregarComentario(maquina),
-              icon: const Icon(Icons.edit),
-              label: const Text('Editar comentarios'),
-              style: TextButton.styleFrom(
-                foregroundColor: _colorPrimario,
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
-        // Mostrar comentario si existe
-        if (comentario.isNotEmpty) ...[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: _colorFondoSecundario,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Text(
-              comentario,
-              style: const TextStyle(
-                fontSize: 15,
-              ),
-            ),
-          ),
-        ] else ...[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: _colorFondoSecundario,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Text(
-              'No hay comentarios para esta máquina.',
-              style: TextStyle(
-                fontStyle: FontStyle.italic,
-                color: _colorTextoSecundario,
-              ),
-            ),
-          ),
-        ],
-
-        // Mostrar fotos si existen
-        if (fotos.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          const Text(
-            'Fotos adjuntas:',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Grid de fotos
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-              childAspectRatio: 1,
-            ),
-            itemCount: fotos.length,
-            itemBuilder: (context, index) {
-              return InkWell(
-                onTap: () => _verFoto(fotos[index]),
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.file(
-                      File(fotos[index]),
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: Colors.grey.shade200,
-                          child: const Icon(Icons.broken_image),
-                        );
-                      },
+              Row(
+                children: [
+                  // Filtro de Aceite
+                  Expanded(
+                    child: _buildFilterCard(
+                      theme: theme,
+                      title: 'Filtro de Aceite',
+                      model: maquina['modeloFiltroAceite'] ?? 'No especificado',
+                      date: maquina['fechaCambioFiltroAceite'],
+                      icon: Icons.oil_barrel,
                     ),
                   ),
-                ),
-              );
-            },
-          ),
-        ],
+                  const SizedBox(width: 16),
 
-        const SizedBox(height: 20),
-      ],
-    );
-  }
+                  // Filtro de Aire
+                  Expanded(
+                    child: _buildFilterCard(
+                      theme: theme,
+                      title: 'Filtro de Aire',
+                      model: maquina['modeloFiltroAire'] ?? 'No especificado',
+                      date: maquina['fechaCambioFiltroAire'],
+                      icon: Icons.air,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
 
-  // Widget para información en el panel de detalle
-  Widget _infoItem(IconData icon, String titulo, String valor) {
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: _colorPrimario),
-        const SizedBox(width: 6),
-        Text(
-          '$titulo: ',
-          style: TextStyle(
-            color: _colorTextoSecundario,
-          ),
-        ),
-        Text(
-          valor,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Diálogo para eliminar máquina
-  void _mostrarDialogoEliminar(Map<String, dynamic> maquina) {
-    showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-            title: const Text('Eliminar Máquina'),
-            content: Text('¿Estás seguro de que deseas eliminar la máquina ${maquina['placa']}?'),
-            actions: [
-            TextButton(
-            onPressed: () => Navigator.pop(context),
-    child: const Text('Cancelar'),
-    ),
-    ElevatedButton(
-    style: ElevatedButton.styleFrom(backgroundColor: _colorAlerta),
-    onPressed: () async {
-    // Guardar el índice antes de eliminar
-    int indexEliminado = _maquinas.indexWhere((m) => m['id'] == maquina['id']);
-
-    setState(() {
-    _maquinas.remove(maquina);
-
-// Actualizar el índice seleccionado después de eliminar
-      if (_maquinas.isNotEmpty) {
-        if (indexEliminado < _maquinaSeleccionadaIndex) {
-          // Si se eliminó una máquina antes de la seleccionada, ajustar el índice
-          _maquinaSeleccionadaIndex = _maquinaSeleccionadaIndex - 1;
-        } else if (indexEliminado == _maquinaSeleccionadaIndex) {
-          // Si se eliminó la máquina seleccionada, seleccionar otra
-          _maquinaSeleccionadaIndex = _maquinaSeleccionadaIndex >= _maquinas.length
-              ? _maquinas.length - 1
-              : _maquinaSeleccionadaIndex;
-        }
-        // Si se eliminó una después de la seleccionada, el índice sigue siendo válido
-      }
-    });
-
-    await guardarMaquinas(_maquinas);
-    Navigator.pop(context);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Máquina eliminada con éxito'),
-        backgroundColor: _colorAlerta,
-      ),
-    );
-    },
-      child: const Text(
-        'Eliminar',
-        style: TextStyle(color: Colors.white),
-      ),
-    ),
+                  // Filtro de Petróleo
+                  Expanded(
+                    child: _buildFilterCard(
+                      theme: theme,
+                      title: 'Filtro de Petróleo',
+                      model: maquina['modeloFiltroPetroleo'] ?? 'No especificado',
+                      date: maquina['fechaCambioFiltroPetroleo'],
+                      icon: Icons.local_gas_station,
+                    ),
+                  ),
+                ],
+              ),
             ],
-        ),
-    );
-  }
 
-  // Vista original para móvil (vertical) con mejoras
-  Widget _construirListaDatosVertical() {
-    return RefreshIndicator(
-      onRefresh: _cargarMaquinas,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16.0),
-        itemCount: _maquinas.length,
-        itemBuilder: (context, index) {
-          final maquina = _maquinas[index];
-          return _construirTarjetaMaquina(maquina, index);
-        },
-      ),
-    );
-  }
+            if (_mostrarOtrasRevisiones) ...[
+              const SizedBox(height: 32),
 
-  // Función modificada para construir tarjeta de máquina en vista vertical
-  Widget _construirTarjetaMaquina(Map<String, dynamic> maquina, int index) {
-    final diasRestantes = _calcularDiasRestantes(maquina['fechaRevisionTecnica']);
-    final estadoFecha = _verificarFecha(maquina['fechaRevisionTecnica']);
-    final bool hayAlerta = estadoFecha != EstadoFecha.normal;
-    final bool tieneComentarios = maquina['comentario'] != null &&
-        maquina['comentario'].toString().isNotEmpty;
-    final List<String> fotos = maquina['fotos'] != null ?
-    List<String>.from(maquina['fotos']) : [];
-    final Color colorAlerta = estadoFecha == EstadoFecha.vencida ? _colorAlerta : Colors.orange;
-
-    return Card(
-      elevation: 3,
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: hayAlerta ? colorAlerta : Colors.transparent,
-          width: hayAlerta ? 1.5 : 0,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Encabezado de la tarjeta
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: hayAlerta ? colorAlerta.withOpacity(0.1) : _colorPrimario.withOpacity(0.05),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Primera fila: ID, placa, modelo, estado
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: hayAlerta ? colorAlerta.withOpacity(0.2) : _colorPrimario.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.directions_bus,
-                        size: 28,
-                        color: hayAlerta ? colorAlerta : _colorPrimario,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Placa y modelo con estilo mejorado
-                          Text(
-                            maquina['placa'] ?? 'Sin placa',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: hayAlerta ? colorAlerta : Colors.black87,
-                            ),
-                          ),
-                          Text(
-                            maquina['modelo'] ?? 'Sin modelo',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: _colorTextoSecundario,
-                            ),
-                          ),
-                          Text(
-                            'ID: ${maquina['id']}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _colorTextoSecundario,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: maquina['estado'] == 'Activo'
-                            ? Colors.green.withOpacity(0.1)
-                            : Colors.orange.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: maquina['estado'] == 'Activo'
-                              ? Colors.green
-                              : Colors.orange,
-                        ),
-                      ),
-                      child: Text(
-                        maquina['estado'] ?? 'Sin estado',
-                        style: TextStyle(
-                          color: maquina['estado'] == 'Activo'
-                              ? Colors.green.shade700
-                              : Colors.orange.shade700,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ],
+              // Otras revisiones
+              Text(
+                'Otras Revisiones',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
+              ),
+              const SizedBox(height: 16),
 
-                // Información de revisión técnica con días restantes
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Decantador
+                  Expanded(
+                    child: _buildFilterCard(
+                      theme: theme,
+                      title: 'Decantador',
+                      model: maquina['modeloDecantador'] ?? 'No especificado',
+                      date: maquina['fechaRevisionDecantador'],
+                      icon: Icons.water_drop,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+
+                  // Mostrar primera correa (si existe)
+                  if (maquina['correas'] != null && (maquina['correas'] as List).isNotEmpty)
+                    Expanded(
+                      child: _buildFilterCard(
+                        theme: theme,
+                        title: 'Correa Principal',
+                        model: (maquina['correas'] as List).first['modelo'] ?? 'No especificado',
+                        date: (maquina['correas'] as List).first['fecha'],
+                        icon: Icons.settings_input_component,
+                      ),
+                    )
+                  else if (maquina['modeloCorrea'] != null)
+                    Expanded(
+                      child: _buildFilterCard(
+                        theme: theme,
+                        title: 'Correa',
+                        model: maquina['modeloCorrea'] ?? 'No especificado',
+                        date: maquina['fechaRevisionCorrea'],
+                        icon: Icons.settings_input_component,
+                      ),
+                    )
+                  else
+                    Expanded(
+                      child: SizedBox(),
+                    ),
+
+                  // Espacio para mantener la simetría
+                  Expanded(
+                    child: SizedBox(),
+                  ),
+                ],
+              ),
+
+              // Mostrar correas adicionales (si hay más de una)
+              if (maquina['correas'] != null && (maquina['correas'] as List).length > 1) ...[
                 const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: hayAlerta ? colorAlerta.withOpacity(0.2) : Colors.grey.withOpacity(0.1),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                    border: Border.all(
-                      color: hayAlerta ? colorAlerta.withOpacity(0.5) : Colors.grey.shade200,
-                    ),
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.safety_check,
-                            size: 18,
-                            color: hayAlerta ? colorAlerta : _colorPrimario,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Revisión Técnica',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: hayAlerta ? colorAlerta : _colorPrimario,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        'Correas adicionales',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            _formatearFecha(maquina['fechaRevisionTecnica']),
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: hayAlerta ? FontWeight.bold : FontWeight.normal,
-                              color: hayAlerta ? colorAlerta : Colors.black87,
+                      const SizedBox(height: 16),
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          childAspectRatio: 2.5,
+                        ),
+                        itemCount: (maquina['correas'] as List).length - 1,
+                        itemBuilder: (context, i) {
+                          final index = i + 1; // Empezar desde la segunda correa
+                          final correa = (maquina['correas'] as List)[index];
+
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceVariant,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _getColorFecha(correa['fecha']).withOpacity(0.5),
+                              ),
                             ),
-                          ),
-                          if (diasRestantes != null)
-                            _buildDiasRestantes(diasRestantes),
-                        ],
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.settings_input_component,
+                                  color: _getColorFecha(correa['fecha']),
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        'Correa ${index + 1}',
+                                        style: theme.textTheme.bodyMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Modelo: ${correa['modelo'] ?? 'No especificado'}',
+                                        style: theme.textTheme.bodySmall,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        _formatearFecha(correa['fecha']),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: _getColorFecha(correa['fecha']),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
                 ),
               ],
-            ),
-          ),
-
-          // Información general de pasajeros y km
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                _infoItemVerticalMejorado(
-                  Icons.people,
-                  'Capacidad',
-                  '${maquina['capacidad'] ?? 0} pasajeros',
-                ),
-                const SizedBox(width: 24),
-                _infoItemVerticalMejorado(
-                  Icons.speed,
-                  'Kilometraje',
-                  '${maquina['kilometraje'] ?? 0} km',
-                ),
-                if (maquina['bin'] != null && maquina['bin'].toString().isNotEmpty) ...[
-                  const SizedBox(width: 24),
-                  _infoItemVerticalMejorado(
-                    Icons.numbers,
-                    'Número BIN',
-                    maquina['bin'] ?? '',
-                  ),
-                ],
-              ],
-            ),
-          ),
-
-          // Panel expandible para detalles
-          ExpansionTile(
-            title: const Text(
-              'Ver detalles y filtros',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            leading: Icon(Icons.view_list, color: _colorPrimario),
-            expandedCrossAxisAlignment: CrossAxisAlignment.start,
-            childrenPadding: const EdgeInsets.all(16),
-            children: [
-              // Secciones condicionales (filtros, revisiones, etc.)
-              if (_mostrarFiltros) ...[
-                _buildSeccionFiltrosMejorada(maquina),
-                const SizedBox(height: 16),
-              ],
-
-              if (_mostrarOtrasRevisiones) ...[
-                _buildSeccionOtrasRevisionesMejorada(maquina),
-                const SizedBox(height: 16),
-              ],
-
-              if (tieneComentarios || fotos.isNotEmpty) ...[
-                _buildSeccionComentariosMejorada(maquina, tieneComentarios, fotos),
-              ],
             ],
-          ),
 
-          // Botones de acción
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton.icon(
-                  onPressed: () => _agregarComentario(maquina),
-                  icon: const Icon(Icons.comment),
-                  label: const Text('Comentario'),
-                  style: TextButton.styleFrom(foregroundColor: _colorPrimario),
+            if (_mostrarComentarios) ...[
+              const SizedBox(height: 32),
+
+              // Comentarios
+              Text(
+                'Comentarios y Fotos',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
-                TextButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => EditMaquinaScreen(
-                          maquinaExistente: maquina,
-                          onSave: (maquinaActualizada) {
-                            setState(() {
-                              final index = _maquinas.indexWhere(
-                                      (m) => m['id'] == maquinaActualizada['id']
-                              );
-                              if (index != -1) {
-                                _maquinas[index] = maquinaActualizada;
-                              }
-                            });
-                            guardarMaquinas(_maquinas);
-                          },
+              ),
+              const SizedBox(height: 16),
+
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Comentarios:',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: () => _agregarComentario(maquina),
+                          icon: const Icon(Icons.edit),
+                          label: const Text('Editar comentarios'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: theme.colorScheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+
+                    if (maquina['comentario'] != null && maquina['comentario'].toString().isNotEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.background,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: theme.colorScheme.outline.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Text(
+                          maquina['comentario'],
+                          style: theme.textTheme.bodyLarge,
+                        ),
+                      )
+                    else
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.background,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: theme.colorScheme.outline.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Text(
+                          'No hay comentarios para esta máquina.',
+                          style: TextStyle(
+                            fontStyle: FontStyle.italic,
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          ),
                         ),
                       ),
-                    ).then((_) => _cargarMaquinas());
-                  },
-                  icon: const Icon(Icons.edit),
-                  label: const Text('Editar'),
-                  style: TextButton.styleFrom(foregroundColor: _colorPrimario),
+
+                    // Mostrar fotos si existen
+                    if (fotos.isNotEmpty) ...[
+                      const SizedBox(height: 24),
+
+                      Text(
+                        'Fotos adjuntas:',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 4,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
+                          childAspectRatio: 1,
+                        ),
+                        itemCount: fotos.length,
+                        itemBuilder: (context, index) {
+                          return InkWell(
+                            onTap: () => _verFoto(fotos[index]),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: theme.colorScheme.outline.withOpacity(0.3),
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.file(
+                                  File(fotos[index]),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      color: theme.colorScheme.surfaceVariant,
+                                      child: Icon(
+                                        Icons.broken_image,
+                                        color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ],
                 ),
-                TextButton.icon(
-                  onPressed: () {
-                    _mostrarDialogoEliminar(maquina);
-                  },
-                  icon: const Icon(Icons.delete),
-                  label: const Text('Eliminar'),
-                  style: TextButton.styleFrom(foregroundColor: _colorAlerta),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Widget para mostrar un elemento de información (versión vertical mejorada)
-  Widget _infoItemVerticalMejorado(IconData icon, String titulo, String valor) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: _colorPrimario.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 18, color: _colorPrimario),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    titulo,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: _colorTextoSecundario,
-                    ),
-                  ),
-                  Text(
-                    valor,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Sección de filtros mejorada para vista vertical
-  Widget _buildSeccionFiltrosMejorada(Map<String, dynamic> maquina) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.filter_alt, color: _colorPrimario),
-            const SizedBox(width: 8),
-            Text(
-              'Filtros',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: _colorPrimario,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          child: Column(
-            children: [
-              _buildFilaFiltroMejorada(
-                'Filtro de Aceite',
-                maquina['modeloFiltroAceite'] ?? 'No especificado',
-                maquina['fechaCambioFiltroAceite'],
-                Icons.oil_barrel,
-              ),
-              const Divider(height: 1),
-              _buildFilaFiltroMejorada(
-                'Filtro de Aire',
-                maquina['modeloFiltroAire'] ?? 'No especificado',
-                maquina['fechaCambioFiltroAire'],
-                Icons.air,
-              ),
-              const Divider(height: 1),
-              _buildFilaFiltroMejorada(
-                'Filtro de Petróleo',
-                maquina['modeloFiltroPetroleo'] ?? 'No especificado',
-                maquina['fechaCambioFiltroPetroleo'],
-                Icons.local_gas_station,
               ),
             ],
-          ),
+
+            const SizedBox(height: 40),
+          ],
         ),
-      ],
+      ),
     );
   }
 
-  // Fila de filtro mejorada para vista vertical
-  Widget _buildFilaFiltroMejorada(String titulo, String modelo, String? fechaIso, IconData icono) {
-    final estadoFecha = _verificarFecha(fechaIso);
-    final color = estadoFecha == EstadoFecha.vencida
-        ? _colorAlerta
-        : (estadoFecha == EstadoFecha.proxima ? Colors.orange : _colorPrimario);
-
-    return Padding(
-      padding: const EdgeInsets.all(12),
+  Widget _buildInfoChip({
+    required ThemeData theme,
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icono, color: color, size: 20),
+          Icon(
+            icon,
+            size: 20,
+            color: theme.colorScheme.primary,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -2122,281 +1714,409 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  titulo,
+                  label,
                   style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: color,
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
                   ),
                 ),
                 Text(
-                  'Modelo: $modelo',
-                  style: const TextStyle(fontSize: 13),
+                  value,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              const Text(
-                'Último cambio:',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              Text(
-                _formatearFecha(fechaIso),
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: estadoFecha != EstadoFecha.normal ? color : null,
-                ),
-              ),
-            ],
           ),
         ],
       ),
     );
   }
 
-  // Sección de otras revisiones mejorada para vista vertical
-  Widget _buildSeccionOtrasRevisionesMejorada(Map<String, dynamic> maquina) {
-    // Obtener las correas (nueva estructura o antigua)
-    List<Map<String, dynamic>> correas = [];
-    if (maquina['correas'] != null && maquina['correas'] is List) {
-      correas = List<Map<String, dynamic>>.from(maquina['correas']);
-    } else if (maquina['modeloCorrea'] != null) {
-      correas = [{
-        'modelo': maquina['modeloCorrea'],
-        'fecha': maquina['fechaRevisionCorrea'],
-      }];
-    }
+  Widget _buildFilterCard({
+    required ThemeData theme,
+    required String title,
+    required String model,
+    required String? date,
+    required IconData icon,
+  }) {
+    final Color color = _getColorFecha(date);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.build, color: _colorPrimario),
-            const SizedBox(width: 8),
-            Text(
-              'Otras Revisiones',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: _colorPrimario,
-              ),
-            ),
-          ],
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: color.withOpacity(0.5),
         ),
-        const SizedBox(height: 12),
-
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          child: Column(
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              _buildFilaFiltroMejorada(
-                'Decantador',
-                maquina['modeloDecantador'] ?? 'No especificado',
-                maquina['fechaRevisionDecantador'],
-                Icons.water_drop,
+              Icon(
+                icon,
+                color: color,
               ),
-              if (correas.isNotEmpty) ...[
-                const Divider(height: 1),
-                _buildFilaFiltroMejorada(
-                  'Correa Principal',
-                  correas.first['modelo'] ?? 'No especificado',
-                  correas.first['fecha'],
-                  Icons.settings_input_component,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
+              ),
             ],
           ),
-        ),
-
-        // Mostrar correas adicionales si hay más de una
-        if (correas.length > 1) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade200),
+          const SizedBox(height: 16),
+          Text(
+            'Modelo:',
+            style: TextStyle(
+              fontSize: 12,
+              color: theme.colorScheme.onSurface.withOpacity(0.7),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Correas adicionales',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    color: _colorPrimario,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: correas.length - 1,
-                  separatorBuilder: (context, index) => const Divider(height: 16),
-                  itemBuilder: (context, i) {
-                    final index = i + 1;
-                    final correa = correas[index];
-                    final estadoFecha = _verificarFecha(correa['fecha']);
-                    final color = estadoFecha == EstadoFecha.vencida
-                        ? _colorAlerta
-                        : (estadoFecha == EstadoFecha.proxima ? Colors.orange : _colorPrimario);
-
-                    return Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: color.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(Icons.settings_input_component, color: color, size: 16),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Correa ${index + 1}: ${correa['modelo'] ?? 'No especificado'}',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: estadoFecha != EstadoFecha.normal ? color : null,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          _formatearFecha(correa['fecha']),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: estadoFecha != EstadoFecha.normal ? color : _colorTextoSecundario,
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ],
+          ),
+          Text(
+            model,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Último cambio:',
+            style: TextStyle(
+              fontSize: 12,
+              color: theme.colorScheme.onSurface.withOpacity(0.7),
+            ),
+          ),
+          Text(
+            _formatearFecha(date),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: color,
             ),
           ),
         ],
-      ],
+      ),
     );
   }
 
-  // Sección de comentarios mejorada para vista vertical
-  Widget _buildSeccionComentariosMejorada(Map<String, dynamic> maquina, bool tieneComentarios, List<String> fotos) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+  Widget _buildDaysRemainingIndicator(String? fechaIso) {
+    final theme = Theme.of(context);
+
+    if (fechaIso == null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.grey.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.comment, color: _colorPrimario),
+            Icon(Icons.info_outline, size: 16, color: Colors.grey),
             const SizedBox(width: 8),
             Text(
-              'Comentarios y Fotos',
+              'Sin fecha programada',
               style: TextStyle(
+                color: Colors.grey,
                 fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: _colorPrimario,
+                fontSize: 14,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+      );
+    }
 
-        // Mostrar comentarios
-        if (tieneComentarios) ...[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Text(
-              maquina['comentario'] ?? '',
-              style: const TextStyle(fontSize: 14),
-            ),
-          ),
-        ] else ...[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Text(
-              'No hay comentarios para esta máquina.',
+    try {
+      final DateTime fechaRevision = DateTime.parse(fechaIso);
+      final DateTime ahora = DateTime.now();
+      final int dias = fechaRevision.difference(ahora).inDays;
+
+      final bool esVencido = dias < 0;
+      final String textoMostrar = esVencido
+          ? 'Vencido hace ${-dias} días'
+          : (dias == 0 ? 'Vence hoy' : 'Faltan $dias días');
+
+      final Color color = dias < 0
+          ? Colors.red
+          : (dias <= 30 ? Colors.orange : Colors.green);
+
+      final IconData icon = esVencido
+          ? Icons.warning
+          : (dias <= 30 ? Icons.access_time : Icons.check_circle);
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 8),
+            Text(
+              textoMostrar,
               style: TextStyle(
-                fontStyle: FontStyle.italic,
-                color: _colorTextoSecundario,
+                color: color,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
               ),
             ),
-          ),
-        ],
+          ],
+        ),
+      );
+    } catch (e) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.error.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: theme.colorScheme.error),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 16, color: theme.colorScheme.error),
+            const SizedBox(width: 8),
+            Text(
+              'Fecha inválida',
+              style: TextStyle(
+                color: theme.colorScheme.error,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
 
-        // Mostrar fotos si existen
-        if (fotos.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          const Text(
-            'Fotos adjuntas:',
+  Widget _buildStatusBadge(String status) {
+    Color badgeColor;
+    IconData badgeIcon;
+
+    switch (status.toLowerCase()) {
+      case 'activo':
+        badgeColor = Colors.green;
+        badgeIcon = Icons.check_circle;
+        break;
+      case 'en mantenimiento':
+        badgeColor = Colors.orange;
+        badgeIcon = Icons.engineering;
+        break;
+      case 'fuera de servicio':
+        badgeColor = Colors.red;
+        badgeIcon = Icons.cancel;
+        break;
+      default:
+        badgeColor = Colors.grey;
+        badgeIcon = Icons.help_outline;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: badgeColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: badgeColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(badgeIcon, size: 16, color: badgeColor),
+          const SizedBox(width: 8),
+          Text(
+            status,
             style: TextStyle(
+              color: badgeColor,
               fontWeight: FontWeight.bold,
               fontSize: 14,
             ),
           ),
-          const SizedBox(height: 8),
-
-          SizedBox(
-            height: 100,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: fotos.length,
-              itemBuilder: (context, index) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: InkWell(
-                    onTap: () => _verFoto(fotos[index]),
-                    child: Container(
-                      width: 100,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.file(
-                          File(fotos[index]),
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: Colors.grey.shade200,
-                              child: const Icon(Icons.broken_image),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
         ],
-      ],
+      ),
     );
   }
 
-  Widget _construirMensajeVacio() {
+  Widget _buildVerticalLayout(ThemeData theme) {
+    return RefreshIndicator(
+      onRefresh: _cargarMaquinas,
+      child: _maquinasFiltradas.isEmpty
+          ? ListView(
+        children: [
+          Container(
+            height: MediaQuery.of(context).size.height * 0.7,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    _mostrarSoloVencidos ? Icons.warning :
+                    _mostrarSoloProximos ? Icons.access_time : Icons.search,
+                    size: 64,
+                    color: theme.colorScheme.onSurface.withOpacity(0.2),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    _textoFiltro.isNotEmpty || _mostrarSoloVencidos || _mostrarSoloProximos
+                        ? 'No se encontraron máquinas con los filtros aplicados'
+                        : 'No hay máquinas registradas',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: theme.colorScheme.onSurface.withOpacity(0.5),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  if (_textoFiltro.isNotEmpty || _mostrarSoloVencidos || _mostrarSoloProximos)
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _mostrarSoloVencidos = false;
+                          _mostrarSoloProximos = false;
+                          _textoFiltro = '';
+                          _aplicarFiltros();
+                        });
+                      },
+                      icon: const Icon(Icons.clear),
+                      label: const Text('Limpiar filtros'),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      )
+          : ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _maquinasFiltradas.length,
+        itemBuilder: (context, index) {
+          final maquina = _maquinasFiltradas[index];
+
+          return MachineCard(
+            machine: maquina,
+            isSelected: false,
+            onTap: () {
+              // En la versión móvil, mostrar el detalle en pantalla completa
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => _buildMobileDetailScreen(maquina),
+                ),
+              ).then((_) => _cargarMaquinas());
+            },
+            onEdit: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EditMaquinaScreen(
+                    maquinaExistente: maquina,
+                    onSave: (maquinaActualizada) {
+                      setState(() {
+                        final idx = _maquinas.indexWhere(
+                                (m) => m['id'] == maquinaActualizada['id']
+                        );
+                        if (idx != -1) {
+                          _maquinas[idx] = maquinaActualizada;
+                          _aplicarFiltros();
+                        }
+                      });
+                      guardarMaquinas(_maquinas);
+                    },
+                  ),
+                ),
+              ).then((_) => _cargarMaquinas());
+            },
+            onDelete: () {
+              _mostrarDialogoEliminar(maquina);
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  // Pantalla de detalle para versión móvil
+  Widget _buildMobileDetailScreen(Map<String, dynamic> maquina) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(maquina['placa'] ?? 'Detalles de Máquina'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            tooltip: 'Editar máquina',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EditMaquinaScreen(
+                    maquinaExistente: maquina,
+                    onSave: (maquinaActualizada) {
+                      setState(() {
+                        final index = _maquinas.indexWhere(
+                                (m) => m['id'] == maquinaActualizada['id']
+                        );
+                        if (index != -1) {
+                          _maquinas[index] = maquinaActualizada;
+                          _aplicarFiltros();
+                        }
+                      });
+                      guardarMaquinas(_maquinas);
+                      Navigator.pop(context); // Regresar a la pantalla de detalle
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'delete') {
+                _mostrarDialogoEliminar(maquina);
+              } else if (value == 'comment') {
+                _agregarComentario(maquina);
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'comment',
+                child: ListTile(
+                  leading: Icon(Icons.comment),
+                  title: Text('Editar comentarios'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'delete',
+                child: ListTile(
+                  leading: Icon(Icons.delete, color: Colors.red),
+                  title: Text('Eliminar máquina', style: TextStyle(color: Colors.red)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      body: _buildMachineDetail(maquina, Theme.of(context)),
+    );
+  }
+
+  Widget _buildMensajeVacio(ThemeData theme) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -2404,35 +2124,102 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
           Icon(
             Icons.directions_bus,
             size: 80,
-            color: Colors.grey.shade400,
+            color: theme.colorScheme.onSurface.withOpacity(0.2),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'No hay máquinas registradas',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.5),
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 16),
           Text(
-            'No hay máquinas registradas',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: _colorTextoSecundario,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
             'Utiliza el botón + para agregar una nueva máquina',
-            style: TextStyle(
-              fontSize: 16,
-              color: _colorTextoSecundario,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.5),
             ),
             textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EditMaquinaScreen(
+                    onSave: (nuevaMaquina) {
+                      setState(() {
+                        _maquinas.add(nuevaMaquina);
+                        _aplicarFiltros();
+                      });
+                      guardarMaquinas(_maquinas);
+                    },
+                  ),
+                ),
+              ).then((_) => _cargarMaquinas());
+            },
+            icon: const Icon(Icons.add),
+            label: const Text('Agregar Máquina'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            ),
           ),
         ],
       ),
     );
   }
-}
 
-// Enum para los estados de las fechas
-enum EstadoFecha {
-  normal,
-  proxima,
-  vencida
+  // Función para obtener color según el estado
+  Color _getEstadoColor(Map<String, dynamic> maquina) {
+    final diasRevision = _calcularDiasRestantes(maquina['fechaRevisionTecnica']);
+
+    // Si la revisión está vencida o próxima a vencer, mostrar color de alerta
+    if (diasRevision != null) {
+      if (diasRevision < 0) {
+        return Colors.red; // Vencida
+      } else if (diasRevision <= 30) {
+        return Colors.orange; // Próxima a vencer
+      }
+    }
+
+    // Si no, usar el color según el estado operativo
+    final estado = maquina['estado'] ?? '';
+
+    if (estado == 'Activo') {
+      return Colors.green;
+    } else if (estado == 'En mantenimiento') {
+      return Colors.orange;
+    } else if (estado == 'Fuera de servicio') {
+      return Colors.red;
+    }
+
+    return Colors.grey;
+  }
+
+  // Función para obtener color según una fecha ISO
+  Color _getColorFecha(String? fechaIso) {
+    if (fechaIso == null) {
+      return Colors.grey;
+    }
+
+    try {
+      final DateTime fecha = DateTime.parse(fechaIso);
+      final DateTime ahora = DateTime.now();
+      final int diasRestantes = fecha.difference(ahora).inDays;
+
+      if (diasRestantes < 0) {
+        return Colors.red;
+      } else if (diasRestantes <= 30) {
+        return Colors.orange;
+      } else {
+        return Colors.green;
+      }
+    } catch (e) {
+      return Colors.grey;
+    }
+  }
 }
