@@ -31,7 +31,6 @@ class _GenerarReporteScreenState extends State<GenerarReporteScreen> {
   // Colores estándar
   final Color _colorPrimario = Colors.blue;
   final Color _colorAlerta = Colors.red;
-  final Color _colorFondo = Colors.white;
   final Color _colorTextoSecundario = Colors.grey.shade600;
 
   @override
@@ -51,8 +50,6 @@ class _GenerarReporteScreenState extends State<GenerarReporteScreen> {
         final List<dynamic> maquinasJson = jsonDecode(contenido);
         setState(() {
           _maquinas = maquinasJson.cast<Map<String, dynamic>>();
-          // Inicializar la lista de expansión
-          _expandedList = List.generate(_maquinas.length, (_) => false);
 
           // Aplicar filtro actual
           _aplicarFiltro();
@@ -94,12 +91,12 @@ class _GenerarReporteScreenState extends State<GenerarReporteScreen> {
         break;
       case TipoFiltro.enMantenimiento:
         _maquinasFiltradas = _maquinas.where((maquina) =>
-        maquina['estado'] == 'En mantenimiento'
+        maquina['estado'] == 'En Taller'
         ).toList();
         break;
       case TipoFiltro.fueraDeServicio:
         _maquinasFiltradas = _maquinas.where((maquina) =>
-        maquina['estado'] == 'Fuera de servicio'
+        maquina['estado'] == 'Fuera de Servicio'
         ).toList();
         break;
     }
@@ -343,7 +340,7 @@ class _GenerarReporteScreenState extends State<GenerarReporteScreen> {
               ),
               ListTile(
                 leading: Icon(Icons.engineering, color: Colors.amber),
-                title: const Text('En mantenimiento'),
+                title: const Text('En Taller'),
                 selected: _filtroActual == TipoFiltro.enMantenimiento,
                 selectedTileColor: Colors.amber.withOpacity(0.1),
                 onTap: () {
@@ -352,7 +349,7 @@ class _GenerarReporteScreenState extends State<GenerarReporteScreen> {
               ),
               ListTile(
                 leading: Icon(Icons.do_not_disturb_on, color: Colors.grey),
-                title: const Text('Fuera de servicio'),
+                title: const Text('Fuera de Servicio'),
                 selected: _filtroActual == TipoFiltro.fueraDeServicio,
                 selectedTileColor: Colors.grey.withOpacity(0.1),
                 onTap: () {
@@ -424,15 +421,15 @@ class _GenerarReporteScreenState extends State<GenerarReporteScreen> {
                     const SizedBox(height: 8),
                     _buildStatCard(
                       Icons.engineering,
-                      'En mantenimiento',
-                      _maquinas.where((m) => m['estado'] == 'En mantenimiento').length.toString(),
+                      'En Taller',
+                      _maquinas.where((m) => m['estado'] == 'En Taller').length.toString(),
                       Colors.amber,
                     ),
                     const SizedBox(height: 8),
                     _buildStatCard(
                       Icons.do_not_disturb_on,
-                      'Fuera de servicio',
-                      _maquinas.where((m) => m['estado'] == 'Fuera de servicio').length.toString(),
+                      'Fuera de Servicio',
+                      _maquinas.where((m) => m['estado'] == 'Fuera de Servicio').length.toString(),
                       Colors.grey,
                     ),
                   ],
@@ -477,8 +474,8 @@ class _GenerarReporteScreenState extends State<GenerarReporteScreen> {
               final bool hayAlerta = diasRestantes != null && diasRestantes >= 0 && diasRestantes <= 30;
               final bool tieneComentarios = maquina['comentario'] != null &&
                   maquina['comentario'].toString().isNotEmpty;
-              final List<String> fotos = maquina['fotos'] != null ?
-              List<String>.from(maquina['fotos']) : [];
+              final List<String> fotos = maquina['imagenMaquina'] != null ?
+              [maquina['imagenMaquina']] : [];
 
               return Card(
                 elevation: 2,
@@ -531,7 +528,7 @@ class _GenerarReporteScreenState extends State<GenerarReporteScreen> {
                                     Row(
                                       children: [
                                         Text(
-                                          maquina['placa'] ?? 'Sin placa',
+                                          maquina['patente'] ?? 'Sin patente',
                                           style: const TextStyle(
                                             fontSize: 18,
                                             fontWeight: FontWeight.bold,
@@ -665,18 +662,18 @@ class _GenerarReporteScreenState extends State<GenerarReporteScreen> {
                                   '${maquina['kilometraje'] ?? 0} km',
                                   Icons.speed,
                                 ),
-                                if (maquina['bin'] != null && maquina['bin'].toString().isNotEmpty) ...[
+                                if (maquina['vin'] != null && maquina['vin'].toString().isNotEmpty) ...[
                                   const SizedBox(width: 24),
                                   _buildInfoField(
-                                    'Número BIN',
-                                    maquina['bin'] ?? '',
+                                    'Número VIN',
+                                    maquina['vin'] ?? '',
                                     Icons.numbers,
                                   ),
                                 ],
                               ],
                             ),
 
-                            // Comentarios y fotos
+                            // Comentarios e imagen
                             if (tieneComentarios || fotos.isNotEmpty) ...[
                               const SizedBox(height: 16),
                               const Divider(),
@@ -687,7 +684,7 @@ class _GenerarReporteScreenState extends State<GenerarReporteScreen> {
                                   Icon(Icons.comment, color: _colorPrimario),
                                   const SizedBox(width: 8),
                                   const Text(
-                                    'Comentarios y Fotos',
+                                    'Comentarios e Imagen',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
@@ -714,10 +711,10 @@ class _GenerarReporteScreenState extends State<GenerarReporteScreen> {
                                 const SizedBox(height: 12),
                               ],
 
-                              // Fotos adjuntas
+                              // Imagen adjunta
                               if (fotos.isNotEmpty) ...[
                                 const Text(
-                                  'Fotos adjuntas:',
+                                  'Imagen adjunta:',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 14,
@@ -725,41 +722,29 @@ class _GenerarReporteScreenState extends State<GenerarReporteScreen> {
                                 ),
                                 const SizedBox(height: 8),
 
-                                // Grid de fotos
-                                GridView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 4,
-                                    crossAxisSpacing: 8,
-                                    mainAxisSpacing: 8,
-                                    childAspectRatio: 1,
-                                  ),
-                                  itemCount: fotos.length,
-                                  itemBuilder: (context, fotoIndex) {
-                                    return InkWell(
-                                      onTap: () => _verFoto(fotos[fotoIndex]),
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          border: Border.all(color: Colors.grey.shade300),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(8),
-                                          child: Image.file(
-                                            File(fotos[fotoIndex]),
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) {
-                                              return Container(
-                                                color: Colors.grey.shade200,
-                                                child: const Icon(Icons.broken_image),
-                                              );
-                                            },
-                                          ),
-                                        ),
+                                InkWell(
+                                  onTap: () => _verFoto(fotos.first),
+                                  child: Container(
+                                    height: 150,
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.grey.shade300),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.file(
+                                        File(fotos.first),
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Container(
+                                            color: Colors.grey.shade200,
+                                            child: const Icon(Icons.broken_image),
+                                          );
+                                        },
                                       ),
-                                    );
-                                  },
+                                    ),
+                                  ),
                                 ),
                               ],
                             ],
@@ -904,7 +889,7 @@ class _GenerarReporteScreenState extends State<GenerarReporteScreen> {
                     avatar: Icon(Icons.check_circle, color: Colors.green, size: 16),
                   ),
                   ChoiceChip(
-                    label: const Text('En mantenimiento'),
+                    label: const Text('En Taller'),
                     selected: _filtroActual == TipoFiltro.enMantenimiento,
                     onSelected: (selected) {
                       if (selected) {
@@ -967,8 +952,8 @@ class _GenerarReporteScreenState extends State<GenerarReporteScreen> {
               final bool hayAlerta = diasRestantes != null && diasRestantes >= 0 && diasRestantes <= 30;
               final bool tieneComentarios = maquina['comentario'] != null &&
                   maquina['comentario'].toString().isNotEmpty;
-              final List<String> fotos = maquina['fotos'] != null ?
-              List<String>.from(maquina['fotos']) : [];
+              final List<String> fotos = maquina['imagenMaquina'] != null ?
+              [maquina['imagenMaquina']] : [];
 
               return Card(
                 elevation: 2,
@@ -997,7 +982,7 @@ class _GenerarReporteScreenState extends State<GenerarReporteScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Primera fila: ID, Placa y estado
+                            // Primera fila: ID, Patente y estado
                             Row(
                               children: [
                                 Icon(
@@ -1010,7 +995,7 @@ class _GenerarReporteScreenState extends State<GenerarReporteScreen> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      // ID y Placa
+                                      // ID y Patente
                                       RichText(
                                         text: TextSpan(
                                           style: const TextStyle(
@@ -1025,7 +1010,7 @@ class _GenerarReporteScreenState extends State<GenerarReporteScreen> {
                                               ),
                                             ),
                                             TextSpan(
-                                              text: 'Placa: ${maquina['placa']}',
+                                              text: 'Patente: ${maquina['patente']}',
                                               style: const TextStyle(
                                                 fontWeight: FontWeight.bold,
                                               ),
@@ -1117,7 +1102,7 @@ class _GenerarReporteScreenState extends State<GenerarReporteScreen> {
                         ),
                       ),
 
-                      // Sección expandible para comentarios y fotos
+                      // Sección expandible para comentarios e imagen
                       if (_expandedList[index])
                         Container(
                           width: double.infinity,
@@ -1171,50 +1156,39 @@ class _GenerarReporteScreenState extends State<GenerarReporteScreen> {
                                 ),
                               ],
 
-                              // Mostrar fotos si existen
+                              // Mostrar imagen si existe
                               if (fotos.isNotEmpty) ...[
                                 const SizedBox(height: 16),
                                 const Text(
-                                  'Fotos adjuntas:',
+                                  'Imagen adjunta:',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 14,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                SizedBox(
-                                  height: 100,
-                                  child: ListView.builder(
-                                    scrollDirection: Axis.horizontal,
-                                    itemCount: fotos.length,
-                                    itemBuilder: (context, fotoIndex) {
-                                      return Padding(
-                                        padding: const EdgeInsets.only(right: 8),
-                                        child: InkWell(
-                                          onTap: () => _verFoto(fotos[fotoIndex]),
-                                          child: Container(
-                                            width: 100,
-                                            decoration: BoxDecoration(
-                                              border: Border.all(color: Colors.grey.shade300),
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                            child: ClipRRect(
-                                              borderRadius: BorderRadius.circular(8),
-                                              child: Image.file(
-                                                File(fotos[fotoIndex]),
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (context, error, stackTrace) {
-                                                  return Container(
-                                                    color: Colors.grey.shade200,
-                                                    child: const Icon(Icons.broken_image),
-                                                  );
-                                                },
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
+                                InkWell(
+                                  onTap: () => _verFoto(fotos.first),
+                                  child: Container(
+                                    height: 100,
+                                    width: 100,
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.grey.shade300),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.file(
+                                        File(fotos.first),
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Container(
+                                            color: Colors.grey.shade200,
+                                            child: const Icon(Icons.broken_image),
+                                          );
+                                        },
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],

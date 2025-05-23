@@ -7,9 +7,8 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'providers/theme_provider.dart';
 import 'package:animate_do/animate_do.dart';
-import 'package:file_picker/file_picker.dart'; // Added import
-import 'package:path/path.dart' as path; // Added import
-
+import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as path;
 
 class MaquinaScreen extends StatefulWidget {
   const MaquinaScreen({Key? key}) : super(key: key);
@@ -44,6 +43,8 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
 
   // Cargar máquinas desde el almacenamiento local
   Future<void> _cargarMaquinas() async {
+    if (!mounted) return;
+
     setState(() {
       _cargando = true;
     });
@@ -53,41 +54,53 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
       if (await file.exists()) {
         final contenido = await file.readAsString();
         final List<dynamic> maquinasJson = jsonDecode(contenido);
-        setState(() {
-          _maquinas = maquinasJson.cast<Map<String, dynamic>>();
-          _aplicarFiltros();
-          _cargando = false;
-        });
+
+        if (mounted) {
+          setState(() {
+            _maquinas = maquinasJson.cast<Map<String, dynamic>>();
+            _maquinaSeleccionadaIndex = 0; // Resetear el índice
+            _aplicarFiltros();
+            _cargando = false;
+          });
+        }
       } else {
-        setState(() {
-          _maquinas = [];
-          _maquinasFiltradas = [];
-          _cargando = false;
-        });
+        if (mounted) {
+          setState(() {
+            _maquinas = [];
+            _maquinasFiltradas = [];
+            _maquinaSeleccionadaIndex = 0;
+            _cargando = false;
+          });
+        }
       }
     } catch (e) {
       print('Error al cargar máquinas: $e');
-      setState(() {
-        _maquinas = [];
-        _maquinasFiltradas = [];
-        _cargando = false;
-      });
+      if (mounted) {
+        setState(() {
+          _maquinas = [];
+          _maquinasFiltradas = [];
+          _maquinaSeleccionadaIndex = 0;
+          _cargando = false;
+        });
+      }
     }
   }
 
   // Aplicar filtros de búsqueda y estado
   void _aplicarFiltros() {
+    if (!mounted) return;
+
     List<Map<String, dynamic>> resultado = List.from(_maquinas);
 
     // Filtrar por texto
     if (_textoFiltro.isNotEmpty) {
       resultado = resultado.where((maquina) {
-        final placa = (maquina['placa'] ?? '').toString().toLowerCase();
+        final patente = (maquina['patente'] ?? '').toString().toLowerCase();
         final modelo = (maquina['modelo'] ?? '').toString().toLowerCase();
         final id = (maquina['id'] ?? '').toString().toLowerCase();
         final busqueda = _textoFiltro.toLowerCase();
 
-        return placa.contains(busqueda) ||
+        return patente.contains(busqueda) ||
             modelo.contains(busqueda) ||
             id.contains(busqueda);
       }).toList();
@@ -106,13 +119,20 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
       }).toList();
     }
 
-    setState(() {
-      _maquinasFiltradas = resultado;
-      // Asegurarnos de que el índice seleccionado sea válido
-      if (_maquinasFiltradas.isNotEmpty) {
-        _maquinaSeleccionadaIndex = 0;
-      }
-    });
+    if (mounted) {
+      setState(() {
+        _maquinasFiltradas = resultado;
+        // Resetear el índice si no hay elementos o si está fuera de rango
+        if (_maquinasFiltradas.isEmpty) {
+          _maquinaSeleccionadaIndex = 0;
+        } else if (_maquinaSeleccionadaIndex >= _maquinasFiltradas.length) {
+          _maquinaSeleccionadaIndex = 0;
+        }
+        // Asegurar que el índice sea válido
+        _maquinaSeleccionadaIndex = _maquinaSeleccionadaIndex.clamp(0,
+            _maquinasFiltradas.isEmpty ? 0 : _maquinasFiltradas.length - 1);
+      });
+    }
   }
 
   // Obtener el directorio de documentos
@@ -168,6 +188,8 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
 
   // Agregar o editar comentario
   Future<void> _agregarComentario(Map<String, dynamic> maquina) async {
+    if (!mounted) return;
+
     final theme = Theme.of(context);
     TextEditingController comentarioController = TextEditingController(
         text: maquina['comentario'] ?? ''
@@ -182,10 +204,10 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: StatefulBuilder(
-            builder: (BuildContext context, StateSetter setState) {
+            builder: (BuildContext context, StateSetter setDialogState) {
               return Container(
-                width: MediaQuery.of(context).size.width * 0.6,  // 60% del ancho de la ventana
-                height: MediaQuery.of(context).size.height * 0.7, // 70% del alto de la ventana
+                width: MediaQuery.of(context).size.width * 0.6,
+                height: MediaQuery.of(context).size.height * 0.7,
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,7 +227,7 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                                 ),
                               ),
                               Text(
-                                '${maquina['placa']} - ${maquina['modelo']}',
+                                '${maquina['patente']} - ${maquina['modelo']}',
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   color: theme.colorScheme.onSurface.withOpacity(0.7),
                                 ),
@@ -267,7 +289,7 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                           onPressed: () async {
                             final nuevasFotos = await _seleccionarFotos();
                             if (nuevasFotos.isNotEmpty) {
-                              setState(() {
+                              setDialogState(() {
                                 fotos.addAll(nuevasFotos);
                               });
                             }
@@ -308,7 +330,7 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                               onPressed: () async {
                                 final nuevasFotos = await _seleccionarFotos();
                                 if (nuevasFotos.isNotEmpty) {
-                                  setState(() {
+                                  setDialogState(() {
                                     fotos.addAll(nuevasFotos);
                                   });
                                 }
@@ -366,7 +388,7 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                                   ),
                                   child: InkWell(
                                     onTap: () {
-                                      setState(() {
+                                      setDialogState(() {
                                         fotos.removeAt(index);
                                       });
                                     },
@@ -405,8 +427,8 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                           onPressed: () {
                             // Actualizar el comentario y las fotos
                             final index = _maquinas.indexWhere((m) => m['id'] == maquina['id']);
-                            if (index != -1) {
-                              this.setState(() {
+                            if (index != -1 && mounted) {
+                              setState(() {
                                 _maquinas[index]['comentario'] = comentarioController.text;
                                 _maquinas[index]['fotos'] = fotos;
                                 // Añadir fecha de modificación
@@ -417,12 +439,14 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                             }
                             Navigator.pop(context);
 
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Comentario guardado con éxito'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Comentario guardado con éxito'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: theme.colorScheme.primary,
@@ -448,10 +472,6 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
     List<String> nuevasFotos = [];
 
     try {
-      setState(() {
-        _cargando = true;
-      });
-
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: true,
@@ -487,25 +507,25 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
         }
 
         // Mostrar mensaje de éxito
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${result.files.length} fotos agregadas'),
-            backgroundColor: theme.colorScheme.primary,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${result.files.length} fotos agregadas'),
+              backgroundColor: theme.colorScheme.primary,
+            ),
+          );
+        }
       }
     } catch (e) {
       print('Error al seleccionar fotos: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al seleccionar fotos: $e'),
-          backgroundColor: theme.colorScheme.error,
-        ),
-      );
-    } finally {
-      setState(() {
-        _cargando = false;
-      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al seleccionar fotos: $e'),
+            backgroundColor: theme.colorScheme.error,
+          ),
+        );
+      }
     }
 
     return nuevasFotos;
@@ -610,7 +630,7 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                             color: theme.colorScheme.primary,
                           ),
                           title: Text(
-                            '${maquina['placa']} - ${maquina['modelo']}',
+                            '${maquina['patente']} - ${maquina['modelo']}',
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
@@ -724,7 +744,7 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              '${maquina['placa']} - ${maquina['modelo']}',
+              '${maquina['patente']} - ${maquina['modelo']}',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -750,20 +770,22 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
               foregroundColor: Colors.white,
             ),
             onPressed: () async {
-              setState(() {
-                _maquinas.removeWhere((m) => m['id'] == maquina['id']);
-                _aplicarFiltros();
-              });
+              if (mounted) {
+                setState(() {
+                  _maquinas.removeWhere((m) => m['id'] == maquina['id']);
+                  _aplicarFiltros();
+                });
 
-              await guardarMaquinas(_maquinas);
-              Navigator.pop(context);
+                await guardarMaquinas(_maquinas);
+                Navigator.pop(context);
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Máquina eliminada con éxito'),
-                  backgroundColor: Colors.green,
-                ),
-              );
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Máquina eliminada con éxito'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
             },
             child: const Text('Eliminar'),
           ),
@@ -783,6 +805,17 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
       appBar: AppBar(
         title: const Text('Máquinas Registradas'),
         centerTitle: true,
+        // Asegurar que el botón de regreso funcione
+        leading: Navigator.canPop(context)
+            ? IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            }
+          },
+        )
+            : null,
         actions: [
           IconButton(
             icon: const Icon(Icons.filter_list),
@@ -797,9 +830,11 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
             icon: Icon(_mostrarPanelFiltros ? Icons.filter_alt_off : Icons.filter_alt),
             tooltip: _mostrarPanelFiltros ? 'Ocultar filtros' : 'Mostrar filtros',
             onPressed: () {
-              setState(() {
-                _mostrarPanelFiltros = !_mostrarPanelFiltros;
-              });
+              if (mounted) {
+                setState(() {
+                  _mostrarPanelFiltros = !_mostrarPanelFiltros;
+                });
+              }
             },
           ),
 
@@ -808,19 +843,21 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
             icon: const Icon(Icons.visibility),
             tooltip: 'Opciones de visualización',
             onSelected: (value) {
-              setState(() {
-                switch (value) {
-                  case 'filtros':
-                    _mostrarFiltros = !_mostrarFiltros;
-                    break;
-                  case 'revisiones':
-                    _mostrarOtrasRevisiones = !_mostrarOtrasRevisiones;
-                    break;
-                  case 'comentarios':
-                    _mostrarComentarios = !_mostrarComentarios;
-                    break;
-                }
-              });
+              if (mounted) {
+                setState(() {
+                  switch (value) {
+                    case 'filtros':
+                      _mostrarFiltros = !_mostrarFiltros;
+                      break;
+                    case 'revisiones':
+                      _mostrarOtrasRevisiones = !_mostrarOtrasRevisiones;
+                      break;
+                    case 'comentarios':
+                      _mostrarComentarios = !_mostrarComentarios;
+                      break;
+                  }
+                });
+              }
             },
             itemBuilder: (context) => [
               CheckedPopupMenuItem<String>(
@@ -887,22 +924,28 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
             MaterialPageRoute(
               builder: (context) => EditMaquinaScreen(
                 onSave: (nuevaMaquina) {
-                  setState(() {
-                    // Si ya existe la máquina, actualizarla
-                    int index = _maquinas.indexWhere((m) => m['id'] == nuevaMaquina['id']);
-                    if (index >= 0) {
-                      _maquinas[index] = nuevaMaquina;
-                    } else {
-                      // Si no existe, agregarla
-                      _maquinas.add(nuevaMaquina);
-                    }
-                    _aplicarFiltros();
-                  });
-                  guardarMaquinas(_maquinas);
+                  if (mounted) {
+                    setState(() {
+                      // Si ya existe la máquina, actualizarla
+                      int index = _maquinas.indexWhere((m) => m['id'] == nuevaMaquina['id']);
+                      if (index >= 0) {
+                        _maquinas[index] = nuevaMaquina;
+                      } else {
+                        // Si no existe, agregarla
+                        _maquinas.add(nuevaMaquina);
+                      }
+                      _aplicarFiltros();
+                    });
+                    guardarMaquinas(_maquinas);
+                  }
                 },
               ),
             ),
-          ).then((_) => _cargarMaquinas());
+          ).then((_) {
+            if (mounted) {
+              _cargarMaquinas();
+            }
+          });
         },
         backgroundColor: theme.colorScheme.primary,
         foregroundColor: Colors.white,
@@ -932,7 +975,7 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
             // Campo de búsqueda
             TextField(
               decoration: InputDecoration(
-                hintText: 'Buscar por placa, modelo o ID...',
+                hintText: 'Buscar por patente, modelo, número de máquina o VIN...',
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -1049,12 +1092,20 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: _cargarMaquinas,
-                  child: ListView.builder(
+                  child: _maquinasFiltradas.isEmpty
+                      ? _buildEmptyListMessage(theme)
+                      : ListView.builder(
                     padding: const EdgeInsets.all(8),
                     itemCount: _maquinasFiltradas.length,
                     itemBuilder: (context, index) {
+                      // Verificación de seguridad adicional
+                      if (index < 0 || index >= _maquinasFiltradas.length) {
+                        return const SizedBox.shrink();
+                      }
+
                       final maquina = _maquinasFiltradas[index];
-                      final bool estaSeleccionada = index == _maquinaSeleccionadaIndex;
+                      final bool estaSeleccionada = index == _maquinaSeleccionadaIndex &&
+                          _maquinaSeleccionadaIndex < _maquinasFiltradas.length;
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 8),
@@ -1084,7 +1135,7 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                             ),
                           ),
                           title: Text(
-                            maquina['placa'] ?? 'Sin placa',
+                            maquina['patente'] ?? 'Sin patente',
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: estaSeleccionada
@@ -1117,9 +1168,11 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                             ],
                           ),
                           onTap: () {
-                            setState(() {
-                              _maquinaSeleccionadaIndex = index;
-                            });
+                            if (mounted && index < _maquinasFiltradas.length) {
+                              setState(() {
+                                _maquinaSeleccionadaIndex = index;
+                              });
+                            }
                           },
                         ),
                       );
@@ -1132,21 +1185,95 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
         ),
 
         // Panel de detalle de la máquina seleccionada
-        if (_maquinasFiltradas.isNotEmpty)
-          Expanded(
-            child: _buildMachineDetail(_maquinasFiltradas[_maquinaSeleccionadaIndex], theme),
-          ),
+        Expanded(
+          child: _buildDetailPanel(theme),
+        ),
       ],
     );
   }
 
+  Widget _buildDetailPanel(ThemeData theme) {
+    if (_maquinasFiltradas.isEmpty) {
+      return _buildEmptyDetailPanel(theme);
+    }
+
+    if (_maquinaSeleccionadaIndex < 0 || _maquinaSeleccionadaIndex >= _maquinasFiltradas.length) {
+      return _buildEmptyDetailPanel(theme);
+    }
+
+    try {
+      final maquina = _maquinasFiltradas[_maquinaSeleccionadaIndex];
+      return _buildMachineDetail(maquina, theme);
+    } catch (e) {
+      print('Error al mostrar detalle de máquina: $e');
+      return _buildEmptyDetailPanel(theme);
+    }
+  }
+
+  Widget _buildEmptyListMessage(ThemeData theme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            _mostrarSoloVencidos ? Icons.warning :
+            _mostrarSoloProximos ? Icons.access_time : Icons.search,
+            size: 48,
+            color: theme.colorScheme.onSurface.withOpacity(0.3),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _textoFiltro.isNotEmpty || _mostrarSoloVencidos || _mostrarSoloProximos
+                ? 'No se encontraron máquinas\ncon los filtros aplicados'
+                : 'No hay máquinas registradas',
+            style: TextStyle(
+              fontSize: 16,
+              color: theme.colorScheme.onSurface.withOpacity(0.5),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyDetailPanel(ThemeData theme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.directions_bus,
+            size: 64,
+            color: theme.colorScheme.onSurface.withOpacity(0.3),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Selecciona una máquina\npara ver sus detalles',
+            style: TextStyle(
+              fontSize: 18,
+              color: theme.colorScheme.onSurface.withOpacity(0.5),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMachineDetail(Map<String, dynamic> maquina, ThemeData theme) {
+    if (maquina.isEmpty) {
+      return _buildEmptyDetailPanel(theme);
+    }
+
     final List<String> fotos = maquina['fotos'] != null ? List<String>.from(maquina['fotos']) : [];
 
     return Container(
       padding: const EdgeInsets.all(24),
       color: theme.colorScheme.background,
       child: SingleChildScrollView(
+        // Agregar physics para evitar problemas de scroll
+        physics: const BouncingScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1176,10 +1303,13 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            maquina['placa'] ?? 'Sin placa',
-                            style: theme.textTheme.displaySmall?.copyWith(
-                              fontWeight: FontWeight.bold,
+                          Flexible(
+                            child: Text(
+                              maquina['patente'] ?? 'Sin patente',
+                              style: theme.textTheme.displaySmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -1189,15 +1319,19 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                       Text(
                         maquina['modelo'] ?? 'Sin modelo',
                         style: theme.textTheme.titleLarge,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         'ID: ${maquina['id'] ?? 'No especificado'}',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurface.withOpacity(0.7),
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 16),
-                      Row(
+                      Wrap(
+                        spacing: 16,
+                        runSpacing: 8,
                         children: [
                           _buildInfoChip(
                             theme: theme,
@@ -1205,22 +1339,19 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                             label: 'Capacidad',
                             value: '${maquina['capacidad'] ?? 0} pasajeros',
                           ),
-                          const SizedBox(width: 16),
                           _buildInfoChip(
                             theme: theme,
                             icon: Icons.speed,
                             label: 'Kilometraje',
                             value: '${maquina['kilometraje'] ?? 0} km',
                           ),
-                          if (maquina['bin'] != null && maquina['bin'].toString().isNotEmpty) ...[
-                            const SizedBox(width: 16),
+                          if (maquina['bin'] != null && maquina['bin'].toString().isNotEmpty)
                             _buildInfoChip(
                               theme: theme,
                               icon: Icons.credit_card,
                               label: 'BIN',
                               value: maquina['bin'],
                             ),
-                          ],
                         ],
                       ),
                     ],
@@ -1243,20 +1374,26 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                             builder: (context) => EditMaquinaScreen(
                               maquinaExistente: maquina,
                               onSave: (maquinaActualizada) {
-                                setState(() {
-                                  final index = _maquinas.indexWhere(
-                                          (m) => m['id'] == maquinaActualizada['id']
-                                  );
-                                  if (index != -1) {
-                                    _maquinas[index] = maquinaActualizada;
-                                    _aplicarFiltros();
-                                  }
-                                });
-                                guardarMaquinas(_maquinas);
+                                if (mounted) {
+                                  setState(() {
+                                    final index = _maquinas.indexWhere(
+                                            (m) => m['id'] == maquinaActualizada['id']
+                                    );
+                                    if (index != -1) {
+                                      _maquinas[index] = maquinaActualizada;
+                                      _aplicarFiltros();
+                                    }
+                                  });
+                                  guardarMaquinas(_maquinas);
+                                }
                               },
                             ),
                           ),
-                        ).then((_) => _cargarMaquinas());
+                        ).then((_) {
+                          if (mounted) {
+                            _cargarMaquinas();
+                          }
+                        });
                       },
                     ),
                     const SizedBox(height: 8),
@@ -1349,343 +1486,366 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
 
             if (_mostrarFiltros) ...[
               const SizedBox(height: 32),
-
-              // Filtros
-              Text(
-                'Filtros',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              Row(
-                children: [
-                  // Filtro de Aceite
-                  Expanded(
-                    child: _buildFilterCard(
-                      theme: theme,
-                      title: 'Filtro de Aceite',
-                      model: maquina['modeloFiltroAceite'] ?? 'No especificado',
-                      date: maquina['fechaCambioFiltroAceite'],
-                      icon: Icons.oil_barrel,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-
-                  // Filtro de Aire
-                  Expanded(
-                    child: _buildFilterCard(
-                      theme: theme,
-                      title: 'Filtro de Aire',
-                      model: maquina['modeloFiltroAire'] ?? 'No especificado',
-                      date: maquina['fechaCambioFiltroAire'],
-                      icon: Icons.air,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-
-                  // Filtro de Petróleo
-                  Expanded(
-                    child: _buildFilterCard(
-                      theme: theme,
-                      title: 'Filtro de Petróleo',
-                      model: maquina['modeloFiltroPetroleo'] ?? 'No especificado',
-                      date: maquina['fechaCambioFiltroPetroleo'],
-                      icon: Icons.local_gas_station,
-                    ),
-                  ),
-                ],
-              ),
+              _buildFiltersSection(maquina, theme),
             ],
 
             if (_mostrarOtrasRevisiones) ...[
               const SizedBox(height: 32),
-
-              // Otras revisiones
-              Text(
-                'Otras Revisiones',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Decantador
-                  Expanded(
-                    child: _buildFilterCard(
-                      theme: theme,
-                      title: 'Decantador',
-                      model: maquina['modeloDecantador'] ?? 'No especificado',
-                      date: maquina['fechaRevisionDecantador'],
-                      icon: Icons.water_drop,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-
-                  // Mostrar primera correa (si existe)
-                  if (maquina['correas'] != null && (maquina['correas'] as List).isNotEmpty)
-                    Expanded(
-                      child: _buildFilterCard(
-                        theme: theme,
-                        title: 'Correa Principal',
-                        model: (maquina['correas'] as List).first['modelo'] ?? 'No especificado',
-                        date: (maquina['correas'] as List).first['fecha'],
-                        icon: Icons.settings_input_component,
-                      ),
-                    )
-                  else if (maquina['modeloCorrea'] != null)
-                    Expanded(
-                      child: _buildFilterCard(
-                        theme: theme,
-                        title: 'Correa',
-                        model: maquina['modeloCorrea'] ?? 'No especificado',
-                        date: maquina['fechaRevisionCorrea'],
-                        icon: Icons.settings_input_component,
-                      ),
-                    )
-                  else
-                    Expanded(
-                      child: SizedBox(),
-                    ),
-
-                  // Espacio para mantener la simetría
-                  Expanded(
-                    child: SizedBox(),
-                  ),
-                ],
-              ),
-
-              // Mostrar correas adicionales (si hay más de una)
-              if (maquina['correas'] != null && (maquina['correas'] as List).length > 1) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Correas adicionales',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: NeverScrollableScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                          childAspectRatio: 2.5,
-                        ),
-                        itemCount: (maquina['correas'] as List).length - 1,
-                        itemBuilder: (context, i) {
-                          final index = i + 1; // Empezar desde la segunda correa
-                          final correa = (maquina['correas'] as List)[index];
-
-                          return Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.surfaceVariant,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: _getColorFecha(correa['fecha']).withOpacity(0.5),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.settings_input_component,
-                                  color: _getColorFecha(correa['fecha']),
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        'Correa ${index + 1}',
-                                        style: theme.textTheme.bodyMedium?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      Text(
-                                        'Modelo: ${correa['modelo'] ?? 'No especificado'}',
-                                        style: theme.textTheme.bodySmall,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      Text(
-                                        _formatearFecha(correa['fecha']),
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: _getColorFecha(correa['fecha']),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              _buildOtrasRevisionesSection(maquina, theme),
             ],
 
             if (_mostrarComentarios) ...[
               const SizedBox(height: 32),
-
-              // Comentarios
-              Text(
-                'Comentarios y Fotos',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Comentarios:',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        TextButton.icon(
-                          onPressed: () => _agregarComentario(maquina),
-                          icon: const Icon(Icons.edit),
-                          label: const Text('Editar comentarios'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: theme.colorScheme.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    if (maquina['comentario'] != null && maquina['comentario'].toString().isNotEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.background,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: theme.colorScheme.outline.withOpacity(0.2),
-                          ),
-                        ),
-                        child: Text(
-                          maquina['comentario'],
-                          style: theme.textTheme.bodyLarge,
-                        ),
-                      )
-                    else
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.background,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: theme.colorScheme.outline.withOpacity(0.2),
-                          ),
-                        ),
-                        child: Text(
-                          'No hay comentarios para esta máquina.',
-                          style: TextStyle(
-                            fontStyle: FontStyle.italic,
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
-                          ),
-                        ),
-                      ),
-
-                    // Mostrar fotos si existen
-                    if (fotos.isNotEmpty) ...[
-                      const SizedBox(height: 24),
-
-                      Text(
-                        'Fotos adjuntas:',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: NeverScrollableScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 4,
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 8,
-                          childAspectRatio: 1,
-                        ),
-                        itemCount: fotos.length,
-                        itemBuilder: (context, index) {
-                          return InkWell(
-                            onTap: () => _verFoto(fotos[index]),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: theme.colorScheme.outline.withOpacity(0.3),
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: Image.file(
-                                  File(fotos[index]),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      color: theme.colorScheme.surfaceVariant,
-                                      child: Icon(
-                                        Icons.broken_image,
-                                        color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+              _buildComentariosSection(maquina, fotos, theme),
             ],
 
             const SizedBox(height: 40),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildFiltersSection(Map<String, dynamic> maquina, ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Filtros',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            // Filtro de Aceite
+            Expanded(
+              child: _buildFilterCard(
+                theme: theme,
+                title: 'Filtro de Aceite',
+                model: maquina['modeloFiltroAceite'] ?? 'No especificado',
+                date: maquina['fechaCambioFiltroAceite'],
+                icon: Icons.oil_barrel,
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Filtro de Aire
+            Expanded(
+              child: _buildFilterCard(
+                theme: theme,
+                title: 'Filtro de Aire',
+                model: maquina['modeloFiltroAire'] ?? 'No especificado',
+                date: maquina['fechaCambioFiltroAire'],
+                icon: Icons.air,
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Filtro de Petróleo
+            Expanded(
+              child: _buildFilterCard(
+                theme: theme,
+                title: 'Filtro de Petróleo',
+                model: maquina['modeloFiltroPetroleo'] ?? 'No especificado',
+                date: maquina['fechaCambioFiltroPetroleo'],
+                icon: Icons.local_gas_station,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOtrasRevisionesSection(Map<String, dynamic> maquina, ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Otras Revisiones',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Decantador
+            Expanded(
+              child: _buildFilterCard(
+                theme: theme,
+                title: 'Decantador',
+                model: maquina['modeloDecantador'] ?? 'No especificado',
+                date: maquina['fechaRevisionDecantador'],
+                icon: Icons.water_drop,
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Mostrar primera correa (si existe)
+            if (maquina['correas'] != null && (maquina['correas'] as List).isNotEmpty)
+              Expanded(
+                child: _buildFilterCard(
+                  theme: theme,
+                  title: 'Correa Principal',
+                  model: (maquina['correas'] as List).first['modelo'] ?? 'No especificado',
+                  date: (maquina['correas'] as List).first['fecha'],
+                  icon: Icons.settings_input_component,
+                ),
+              )
+            else if (maquina['modeloCorrea'] != null)
+              Expanded(
+                child: _buildFilterCard(
+                  theme: theme,
+                  title: 'Correa',
+                  model: maquina['modeloCorrea'] ?? 'No especificado',
+                  date: maquina['fechaRevisionCorrea'],
+                  icon: Icons.settings_input_component,
+                ),
+              )
+            else
+              const Expanded(child: SizedBox()),
+            // Espacio para mantener la simetría
+            const Expanded(child: SizedBox()),
+          ],
+        ),
+
+        // Mostrar correas adicionales (si hay más de una)
+        if (maquina['correas'] != null && (maquina['correas'] as List).length > 1) ...[
+          const SizedBox(height: 16),
+          _buildCorreasAdicionalesSection(maquina, theme),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildCorreasAdicionalesSection(Map<String, dynamic> maquina, ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Correas adicionales',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: 2.5,
+            ),
+            itemCount: (maquina['correas'] as List).length - 1,
+            itemBuilder: (context, i) {
+              final index = i + 1; // Empezar desde la segunda correa
+              final correa = (maquina['correas'] as List)[index];
+
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _getColorFecha(correa['fecha']).withOpacity(0.5),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.settings_input_component,
+                      color: _getColorFecha(correa['fecha']),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Correa ${index + 1}',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            'Modelo: ${correa['modelo'] ?? 'No especificado'}',
+                            style: theme.textTheme.bodySmall,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            _formatearFecha(correa['fecha']),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _getColorFecha(correa['fecha']),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildComentariosSection(Map<String, dynamic> maquina, List<String> fotos, ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Comentarios y Fotos',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Comentarios:',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => _agregarComentario(maquina),
+                    icon: const Icon(Icons.edit),
+                    label: const Text('Editar comentarios'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: theme.colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _buildComentarioContainer(maquina, theme),
+              if (fotos.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                _buildFotosSection(fotos, theme),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildComentarioContainer(Map<String, dynamic> maquina, ThemeData theme) {
+    if (maquina['comentario'] != null && maquina['comentario'].toString().isNotEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.background,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: theme.colorScheme.outline.withOpacity(0.2),
+          ),
+        ),
+        child: Text(
+          maquina['comentario'],
+          style: theme.textTheme.bodyLarge,
+        ),
+      );
+    } else {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.background,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: theme.colorScheme.outline.withOpacity(0.2),
+          ),
+        ),
+        child: Text(
+          'No hay comentarios para esta máquina.',
+          style: TextStyle(
+            fontStyle: FontStyle.italic,
+            color: theme.colorScheme.onSurface.withOpacity(0.6),
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _buildFotosSection(List<String> fotos, ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Fotos adjuntas:',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 4,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            childAspectRatio: 1,
+          ),
+          itemCount: fotos.length,
+          itemBuilder: (context, index) {
+            return InkWell(
+              onTap: () => _verFoto(fotos[index]),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: theme.colorScheme.outline.withOpacity(0.3),
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.file(
+                    File(fotos[index]),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: theme.colorScheme.surfaceVariant,
+                        child: Icon(
+                          Icons.broken_image,
+                          color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -2007,6 +2167,8 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
         padding: const EdgeInsets.all(16),
         itemCount: _maquinasFiltradas.length,
         itemBuilder: (context, index) {
+          if (index >= _maquinasFiltradas.length) return const SizedBox();
+
           final maquina = _maquinasFiltradas[index];
 
           return MachineCard(
@@ -2028,16 +2190,18 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                   builder: (context) => EditMaquinaScreen(
                     maquinaExistente: maquina,
                     onSave: (maquinaActualizada) {
-                      setState(() {
-                        final idx = _maquinas.indexWhere(
-                                (m) => m['id'] == maquinaActualizada['id']
-                        );
-                        if (idx != -1) {
-                          _maquinas[idx] = maquinaActualizada;
-                          _aplicarFiltros();
-                        }
-                      });
-                      guardarMaquinas(_maquinas);
+                      if (mounted) {
+                        setState(() {
+                          final idx = _maquinas.indexWhere(
+                                  (m) => m['id'] == maquinaActualizada['id']
+                          );
+                          if (idx != -1) {
+                            _maquinas[idx] = maquinaActualizada;
+                            _aplicarFiltros();
+                          }
+                        });
+                        guardarMaquinas(_maquinas);
+                      }
                     },
                   ),
                 ),
@@ -2056,7 +2220,7 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
   Widget _buildMobileDetailScreen(Map<String, dynamic> maquina) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(maquina['placa'] ?? 'Detalles de Máquina'),
+        title: Text(maquina['patente'] ?? 'Detalles de Máquina'),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
@@ -2068,17 +2232,19 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                   builder: (context) => EditMaquinaScreen(
                     maquinaExistente: maquina,
                     onSave: (maquinaActualizada) {
-                      setState(() {
-                        final index = _maquinas.indexWhere(
-                                (m) => m['id'] == maquinaActualizada['id']
-                        );
-                        if (index != -1) {
-                          _maquinas[index] = maquinaActualizada;
-                          _aplicarFiltros();
-                        }
-                      });
-                      guardarMaquinas(_maquinas);
-                      Navigator.pop(context); // Regresar a la pantalla de detalle
+                      if (mounted) {
+                        setState(() {
+                          final index = _maquinas.indexWhere(
+                                  (m) => m['id'] == maquinaActualizada['id']
+                          );
+                          if (index != -1) {
+                            _maquinas[index] = maquinaActualizada;
+                            _aplicarFiltros();
+                          }
+                        });
+                        guardarMaquinas(_maquinas);
+                        Navigator.pop(context); // Regresar a la pantalla de detalle
+                      }
                     },
                   ),
                 ),
@@ -2150,11 +2316,13 @@ class _MaquinaScreenState extends State<MaquinaScreen> {
                 MaterialPageRoute(
                   builder: (context) => EditMaquinaScreen(
                     onSave: (nuevaMaquina) {
-                      setState(() {
-                        _maquinas.add(nuevaMaquina);
-                        _aplicarFiltros();
-                      });
-                      guardarMaquinas(_maquinas);
+                      if (mounted) {
+                        setState(() {
+                          _maquinas.add(nuevaMaquina);
+                          _aplicarFiltros();
+                        });
+                        guardarMaquinas(_maquinas);
+                      }
                     },
                   ),
                 ),

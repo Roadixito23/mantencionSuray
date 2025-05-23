@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:animate_do/animate_do.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:badges/badges.dart' as badges;
 import 'maquina_screen.dart';
 import 'edit_maquina_screen.dart';
@@ -10,7 +9,6 @@ import 'settings_screen.dart';
 import 'generate_excel_screen.dart';
 import 'export_document_screen.dart';
 import 'import_document_screen.dart';
-import 'import_excel_screen.dart';
 import 'generar_reporte_screen.dart';
 import 'providers/theme_provider.dart';
 import 'dart:io';
@@ -31,9 +29,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   bool _cargando = true;
   int _selectedIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  bool _isSearchOpen = false;
-  final TextEditingController _searchController = TextEditingController();
-  late TabController _tabController;
 
   // Variables para almacenar estadísticas
   int _totalMaquinas = 0;
@@ -53,7 +48,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
     _verificarDatos();
     _registerShortcuts();
 
@@ -66,8 +60,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   void dispose() {
     _actualizacionTimer?.cancel();
-    _searchController.dispose();
-    _tabController.dispose();
     super.dispose();
   }
 
@@ -86,13 +78,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 return true;
               }
               break;
-
             case LogicalKeyboardKey.keyN:
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 _editarMaquina();
               });
               return true;
-
             case LogicalKeyboardKey.keyE:
               if (_hayDatosMaquinas) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -101,7 +91,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 return true;
               }
               break;
-
             case LogicalKeyboardKey.keyR:
               if (_hayDatosMaquinas) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -110,21 +99,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 return true;
               }
               break;
-
-            case LogicalKeyboardKey.keyS:
-              if (_hayDatosMaquinas) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _navegarAExportarDocumento();
-                });
-                return true;
-              }
-              break;
-
-            case LogicalKeyboardKey.keyI:
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                _navegarAImportarDocumento();
-              });
-              return true;
           }
         }
 
@@ -163,8 +137,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             _buildAtajoItem(Icons.add_circle_outline, 'Ctrl+N: Agregar Máquina'),
             _buildAtajoItem(Icons.table_chart, 'Ctrl+E: Exportar a Excel'),
             _buildAtajoItem(Icons.assessment, 'Ctrl+R: Generar Reporte'),
-            _buildAtajoItem(Icons.save_alt, 'Ctrl+S: Crear Respaldo'),
-            _buildAtajoItem(Icons.upload_file, 'Ctrl+I: Importar Documento'),
             _buildAtajoItem(Icons.help_outline, 'F1: Mostrar esta ayuda'),
           ],
         ),
@@ -218,28 +190,15 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         // Obtener las últimas máquinas actualizadas
         List<Map<String, dynamic>> maquinasOrdenadas = List.from(maquinas);
 
-        // Ordenar por fecha de modificación si existe, o usar fechas de revisión como alternativa
+        // Ordenar por fecha de modificación si existe
         maquinasOrdenadas.sort((a, b) {
-          // Prioridad 1: Fecha de modificación
           if (a['fechaModificacion'] != null && b['fechaModificacion'] != null) {
             try {
               final DateTime fechaA = DateTime.parse(a['fechaModificacion']);
               final DateTime fechaB = DateTime.parse(b['fechaModificacion']);
-              // Orden descendente (más reciente primero)
               return fechaB.compareTo(fechaA);
             } catch (e) {}
           }
-
-          // Prioridad 2: Fecha de revisión técnica
-          if (a['fechaRevisionTecnica'] != null && b['fechaRevisionTecnica'] != null) {
-            try {
-              final DateTime fechaA = DateTime.parse(a['fechaRevisionTecnica']);
-              final DateTime fechaB = DateTime.parse(b['fechaRevisionTecnica']);
-              return fechaB.compareTo(fechaA);
-            } catch (e) {}
-          }
-
-          // Sin fechas válidas para comparar
           return 0;
         });
 
@@ -262,10 +221,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               final diferencia = fechaRevision.difference(ahora);
 
               if (diferencia.inDays < 0) {
-                // Revisión vencida
                 vencidas++;
               } else if (diferencia.inDays <= 30) {
-                // Revisión próxima a vencer (30 días o menos)
                 proximas++;
               }
             } catch (e) {
@@ -282,7 +239,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           _maquinasActivas = activas;
           _maquinasMantenimiento = mantenimiento;
           _maquinasFueraServicio = fueraServicio;
-          _ultimasMaquinasActualizadas = maquinasOrdenadas.take(5).toList(); // Tomar las 5 más recientes
+          _ultimasMaquinasActualizadas = maquinasOrdenadas.take(5).toList();
           _ultimaActualizacion = DateTime.now();
           _cargando = false;
         });
@@ -408,19 +365,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     });
   }
 
-  void _navegarAImportarExcel() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const ImportExcelScreen(),
-      ),
-    ).then((resultado) {
-      if (resultado == true) {
-        _verificarDatos();
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -433,8 +377,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
     return Scaffold(
       key: _scaffoldKey,
-      appBar: useDesktopLayout ? _buildWindowsAppBar(theme) : null,
-      drawer: useDesktopLayout ? null : _buildMobileDrawer(theme),
+      appBar: useDesktopLayout ? _buildWindowsAppBar(theme, themeProvider) : null,
+      drawer: useDesktopLayout ? null : _buildMobileDrawer(theme, themeProvider),
       body: _cargando
           ? Center(
         child: Column(
@@ -452,12 +396,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           : useDesktopLayout
           ? _buildWindowsLayout(theme)
           : _buildMobileLayout(isLandscape, theme),
+      floatingActionButton: _hayDatosMaquinas ? FloatingActionButton(
+        onPressed: _editarMaquina,
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.add),
+        tooltip: 'Agregar Nueva Máquina',
+      ) : null,
     );
   }
 
-  PreferredSizeWidget _buildWindowsAppBar(ThemeData theme) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-
+  PreferredSizeWidget _buildWindowsAppBar(ThemeData theme, ThemeProvider themeProvider) {
     return AppBar(
       title: Row(
         children: [
@@ -475,68 +424,25 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       foregroundColor: Colors.white,
       elevation: 4,
       actions: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          width: _isSearchOpen ? 300 : 48,
-          height: 40,
-          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: _isSearchOpen
-              ? TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Buscar...',
-              hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-              prefixIcon: const Icon(Icons.search, color: Colors.white, size: 20),
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white, size: 20),
-                onPressed: () {
-                  setState(() {
-                    _isSearchOpen = false;
-                    _searchController.clear();
-                  });
-                },
-              ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        // Solo mostrar alertas si hay revisiones próximas o vencidas
+        if ((_revisionesProximas + _revisionesVencidas) > 0)
+          badges.Badge(
+            showBadge: true,
+            badgeContent: Text(
+              '${_revisionesProximas + _revisionesVencidas}',
+              style: const TextStyle(color: Colors.white, fontSize: 10),
             ),
-            style: const TextStyle(color: Colors.white),
-          )
-              : IconButton(
-            icon: const Icon(Icons.search, color: Colors.white),
-            tooltip: 'Buscar',
-            onPressed: () {
-              setState(() {
-                _isSearchOpen = true;
-              });
-            },
+            position: badges.BadgePosition.topEnd(top: 8, end: 8),
+            badgeStyle: badges.BadgeStyle(
+              badgeColor: Colors.red,
+              padding: const EdgeInsets.all(4),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.warning),
+              tooltip: 'Revisiones pendientes',
+              onPressed: _hayDatosMaquinas ? _navegarAGenerarReporte : null,
+            ),
           ),
-        ),
-
-        const SizedBox(width: 8),
-
-        badges.Badge(
-          showBadge: (_revisionesProximas + _revisionesVencidas) > 0,
-          badgeContent: Text(
-            '${_revisionesProximas + _revisionesVencidas}',
-            style: const TextStyle(color: Colors.white, fontSize: 10),
-          ),
-          position: badges.BadgePosition.topEnd(top: 8, end: 8),
-          badgeStyle: badges.BadgeStyle(
-            badgeColor: Colors.red,
-            padding: const EdgeInsets.all(4),
-          ),
-          child: IconButton(
-            icon: const Icon(Icons.notifications),
-            tooltip: 'Notificaciones',
-            onPressed: () {
-              // Implementar visualización de notificaciones
-            },
-          ),
-        ),
 
         IconButton(
           icon: Icon(themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode),
@@ -552,47 +458,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           onPressed: _navegarAConfiguracion,
         ),
 
-        PopupMenuButton<String>(
-          icon: CircleAvatar(
-            backgroundColor: Colors.white24,
-            child: const Icon(Icons.person, color: Colors.white),
-          ),
-          tooltip: 'Opciones de usuario',
-          onSelected: (value) {
-            // Implementar opciones de usuario
-          },
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              value: 'profile',
-              child: ListTile(
-                leading: Icon(Icons.person, color: theme.colorScheme.primary),
-                title: const Text('Mi Perfil'),
-              ),
-            ),
-            PopupMenuItem(
-              value: 'help',
-              child: ListTile(
-                leading: Icon(Icons.help, color: theme.colorScheme.primary),
-                title: const Text('Ayuda'),
-              ),
-            ),
-            PopupMenuItem(
-              value: 'about',
-              child: ListTile(
-                leading: Icon(Icons.info, color: theme.colorScheme.primary),
-                title: const Text('Acerca de'),
-              ),
-            ),
-          ],
-        ),
         const SizedBox(width: 16),
       ],
     );
   }
 
-  Widget _buildMobileDrawer(ThemeData theme) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-
+  Widget _buildMobileDrawer(ThemeData theme, ThemeProvider themeProvider) {
     return Drawer(
       child: Column(
         children: [
@@ -665,6 +536,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             ),
           ),
 
+          // Navegación principal
           _buildDrawerItem(
             theme: theme,
             icon: Icons.directions_bus_filled,
@@ -690,6 +562,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             onTap: _hayDatosMaquinas ? _navegarAGenerarReporte : null,
             enabled: _hayDatosMaquinas,
           ),
+
+          const Divider(height: 32),
+
+          // Herramientas de exportación/importación
           _buildDrawerItem(
             theme: theme,
             icon: Icons.table_chart,
@@ -704,13 +580,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             onTap: _hayDatosMaquinas ? _navegarAExportarDocumento : null,
             enabled: _hayDatosMaquinas,
           ),
-          const Divider(height: 32),
           _buildDrawerItem(
             theme: theme,
             icon: Icons.upload_file,
             title: 'Importar Documento',
             onTap: _navegarAImportarDocumento,
           ),
+
+          const Divider(height: 32),
+
+          // Configuración y tema
           _buildDrawerItem(
             theme: theme,
             icon: themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
@@ -815,7 +694,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     return Row(
       children: [
         _buildWindowsSidebar(theme),
-
         Expanded(
           child: Container(
             color: theme.colorScheme.background,
@@ -823,7 +701,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildWindowsHeader(theme),
-
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -921,7 +798,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   enabled: _hayDatosMaquinas,
                 ),
 
-                _buildSidebarCategory('EXPORTACIÓN E IMPORTACIÓN', theme),
+                _buildSidebarCategory('HERRAMIENTAS', theme),
 
                 _buildSidebarItem(
                   theme: theme,
@@ -955,30 +832,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   onTap: () {
                     setState(() => _selectedIndex = 5);
                     _navegarAImportarDocumento();
-                  },
-                ),
-
-                _buildSidebarItem(
-                  theme: theme,
-                  icon: Icons.upload_file,
-                  title: 'Importar Excel',
-                  isSelected: _selectedIndex == 6,
-                  onTap: () {
-                    setState(() => _selectedIndex = 6);
-                    _navegarAImportarExcel();
-                  },
-                ),
-
-                _buildSidebarCategory('CONFIGURACIÓN', theme),
-
-                _buildSidebarItem(
-                  theme: theme,
-                  icon: Icons.settings,
-                  title: 'Configuración',
-                  isSelected: _selectedIndex == 8,
-                  onTap: () {
-                    setState(() => _selectedIndex = 8);
-                    _navegarAConfiguracion();
                   },
                 ),
               ],
@@ -1033,7 +886,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     required String title,
     String? badge,
     Color? badgeColor,
-    String? shortcut,
     required bool isSelected,
     required VoidCallback? onTap,
     bool enabled = true,
@@ -1128,6 +980,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 ],
               ),
 
+              // Solo mostrar botones relevantes
               Row(
                 children: [
                   ElevatedButton.icon(
@@ -1140,15 +993,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  OutlinedButton.icon(
-                    onPressed: _hayDatosMaquinas ? _navegarAGenerarReporte : null,
-                    icon: const Icon(Icons.assessment),
-                    label: const Text('Ver Reportes'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  if (_hayDatosMaquinas) ...[
+                    const SizedBox(width: 12),
+                    OutlinedButton.icon(
+                      onPressed: _navegarAGenerarReporte,
+                      icon: const Icon(Icons.assessment),
+                      label: const Text('Ver Reportes'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ],
@@ -1289,446 +1144,226 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         ),
         const SizedBox(height: 24),
 
-        // Gráfico de estado y últimas actualizaciones
         Expanded(
           child: _ultimasMaquinasActualizadas.isEmpty
               ? _buildEmptyState(theme)
-              : Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Gráficos
-              Expanded(
-                flex: 3,
-                child: Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+              : Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Últimas Actualizaciones',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Estado de la Flota',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Distribución actual de máquinas por estado',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      Expanded(
-                        child: Row(
-                          children: [
-                            // Gráfico circular
-                            Expanded(
-                              child: PieChart(
-                                PieChartData(
-                                  sections: [
-                                    PieChartSectionData(
-                                      value: _maquinasActivas.toDouble(),
-                                      title: _maquinasActivas > 0 ? 'Activas' : '',
-                                      color: Colors.green,
-                                      radius: 100,
-                                      titleStyle: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    PieChartSectionData(
-                                      value: _maquinasMantenimiento.toDouble(),
-                                      title: _maquinasMantenimiento > 0 ? 'Mantenimiento' : '',
-                                      color: Colors.orange,
-                                      radius: 100,
-                                      titleStyle: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    PieChartSectionData(
-                                      value: _maquinasFueraServicio.toDouble(),
-                                      title: _maquinasFueraServicio > 0 ? 'Fuera' : '',
-                                      color: Colors.red,
-                                      radius: 100,
-                                      titleStyle: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                  sectionsSpace: 2,
-                                  centerSpaceRadius: 40,
-                                ),
-                              ),
-                            ),
-
-                            // Leyenda
-                            const SizedBox(width: 24),
-
-                            Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildLegendItem(
-                                  theme: theme,
-                                  color: Colors.green,
-                                  title: 'Máquinas Activas',
-                                  value: '$_maquinasActivas',
-                                ),
-                                const SizedBox(height: 16),
-                                _buildLegendItem(
-                                  theme: theme,
-                                  color: Colors.orange,
-                                  title: 'En Mantenimiento',
-                                  value: '$_maquinasMantenimiento',
-                                ),
-                                const SizedBox(height: 16),
-                                _buildLegendItem(
-                                  theme: theme,
-                                  color: Colors.red,
-                                  title: 'Fuera de Servicio',
-                                  value: '$_maquinasFueraServicio',
-                                ),
-
-                                if (_totalMaquinas > 0) ...[
-                                  const SizedBox(height: 24),
-                                  const Divider(),
-                                  const SizedBox(height: 16),
-
-                                  _buildLegendItem(
-                                    theme: theme,
-                                    color: theme.colorScheme.primary,
-                                    title: 'Total de Máquinas',
-                                    value: '$_totalMaquinas',
-                                    fontSize: 18,
-                                    iconSize: 18,
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Botones de acción rápida
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          OutlinedButton.icon(
-                            onPressed: _hayDatosMaquinas ? _navegarAMaquinas : null,
-                            icon: const Icon(Icons.directions_bus),
-                            label: const Text('Ver todas'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: theme.colorScheme.primary,
-                              side: BorderSide(color: theme.colorScheme.primary),
-                            ),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: _hayDatosMaquinas ? _navegarAGenerarReporte : null,
-                            icon: const Icon(Icons.analytics),
-                            label: const Text('Análisis detallado'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: theme.colorScheme.primary,
-                              side: BorderSide(color: theme.colorScheme.primary),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                    ),
+                    TextButton.icon(
+                      onPressed: _verificarDatos,
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('Actualizar'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Máquinas recientemente añadidas o modificadas',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
                   ),
                 ),
-              ),
+                const SizedBox(height: 16),
 
-              const SizedBox(width: 24),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: _ultimasMaquinasActualizadas.length,
+                    separatorBuilder: (context, index) => const Divider(height: 32),
+                    itemBuilder: (context, index) {
+                      final maquina = _ultimasMaquinasActualizadas[index];
+                      final List<String> fotos = maquina['fotos'] != null ?
+                      List<String>.from(maquina['fotos']) : [];
+                      String fechaTexto = '';
 
-              // Últimas actualizaciones
-              Expanded(
-                flex: 4,
-                child: Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Últimas Actualizaciones',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          TextButton.icon(
-                            onPressed: _verificarDatos,
-                            icon: const Icon(Icons.refresh, size: 16),
-                            label: const Text('Actualizar'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Máquinas recientemente añadidas o modificadas',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
+                      if (maquina['fechaModificacion'] != null) {
+                        try {
+                          final fecha = DateTime.parse(maquina['fechaModificacion']);
+                          fechaTexto = DateFormat('dd/MM/yyyy HH:mm').format(fecha);
+                        } catch (e) {
+                          fechaTexto = 'Fecha no disponible';
+                        }
+                      } else {
+                        fechaTexto = 'Sin fecha registrada';
+                      }
 
-                      Expanded(
-                        child: ListView.separated(
-                          itemCount: _ultimasMaquinasActualizadas.length,
-                          separatorBuilder: (context, index) => const Divider(height: 32),
-                          itemBuilder: (context, index) {
-                            final maquina = _ultimasMaquinasActualizadas[index];
-                            final List<String> fotos = maquina['fotos'] != null ?
-                            List<String>.from(maquina['fotos']) : [];
-                            String fechaTexto = '';
-
-                            if (maquina['fechaModificacion'] != null) {
-                              try {
-                                final fecha = DateTime.parse(maquina['fechaModificacion']);
-                                fechaTexto = DateFormat('dd/MM/yyyy HH:mm').format(fecha);
-                              } catch (e) {
-                                fechaTexto = 'Fecha no disponible';
-                              }
-                            } else if (maquina['fechaRevisionTecnica'] != null) {
-                              try {
-                                final fecha = DateTime.parse(maquina['fechaRevisionTecnica']);
-                                fechaTexto = DateFormat('dd/MM/yyyy').format(fecha);
-                              } catch (e) {
-                                fechaTexto = 'Fecha no disponible';
-                              }
-                            } else {
-                              fechaTexto = 'Sin fecha registrada';
-                            }
-
-                            return FadeIn(
-                              child: InkWell(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => EditMaquinaScreen(
-                                        maquinaExistente: maquina,
-                                        onSave: (maquinaActualizada) {
-                                          _verificarDatos();
-                                        },
-                                      ),
-                                    ),
-                                  );
-                                },
-                                borderRadius: BorderRadius.circular(12),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      // Icono o imagen de máquina
-                                      if (fotos.isNotEmpty)
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(12),
-                                          child: Image.file(
-                                            File(fotos.first),
-                                            width: 80,
-                                            height: 80,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) {
-                                              return _buildMaquinaIcono(maquina, theme);
-                                            },
-                                          ),
-                                        )
-                                      else
-                                        _buildMaquinaIcono(maquina, theme),
-
-                                      const SizedBox(width: 16),
-
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                              children: [
-                                                // Placa y Modelo
-                                                Text(
-                                                  '${maquina['placa']} - ${maquina['modelo']}',
-                                                  style: theme.textTheme.titleMedium?.copyWith(
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-
-                                                // Estado
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                  decoration: BoxDecoration(
-                                                    color: _getEstadoColor(maquina['estado']).withOpacity(0.1),
-                                                    borderRadius: BorderRadius.circular(8),
-                                                    border: Border.all(
-                                                      color: _getEstadoColor(maquina['estado']),
-                                                    ),
-                                                  ),
-                                                  child: Text(
-                                                    maquina['estado'] ?? 'Sin estado',
-                                                    style: TextStyle(
-                                                      color: _getEstadoColor(maquina['estado']),
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 4),
-
-                                            // ID y capacidad
-                                            Text(
-                                              'ID: ${maquina['id']} | Capacidad: ${maquina['capacidad'] ?? 0} pasajeros',
-                                              style: theme.textTheme.bodyMedium,
-                                            ),
-
-                                            const SizedBox(height: 8),
-
-                                            // Fecha Revisión Técnica
-                                            Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.calendar_today,
-                                                  size: 14,
-                                                  color: _getColorEstadoFecha(maquina['fechaRevisionTecnica']),
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  'Revisión: ${_formatearFecha(maquina['fechaRevisionTecnica'])}',
-                                                  style: TextStyle(
-                                                    color: _getColorEstadoFecha(maquina['fechaRevisionTecnica']),
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                                const Spacer(),
-                                                Icon(
-                                                  Icons.access_time,
-                                                  size: 14,
-                                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  'Modificado: $fechaTexto',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: theme.colorScheme.onSurface.withOpacity(0.6),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-
-                                            const SizedBox(height: 8),
-
-                                            // Fotos indicador
-                                            if (fotos.length > 1)
-                                              Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.photo_library,
-                                                    size: 14,
-                                                    color: theme.colorScheme.primary,
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    '${fotos.length} fotos adjuntas',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: theme.colorScheme.primary,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                      return FadeIn(
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EditMaquinaScreen(
+                                  maquinaExistente: maquina,
+                                  onSave: (maquinaActualizada) {
+                                    _verificarDatos();
+                                  },
                                 ),
                               ),
                             );
                           },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Icono o imagen de máquina
+                                if (fotos.isNotEmpty)
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.file(
+                                      File(fotos.first),
+                                      width: 80,
+                                      height: 80,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return _buildMaquinaIcono(maquina, theme);
+                                      },
+                                    ),
+                                  )
+                                else
+                                  _buildMaquinaIcono(maquina, theme),
+
+                                const SizedBox(width: 16),
+
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+
+                                          // Patente y Modelo
+                                          Text(
+                                            '${maquina['patente']} - ${maquina['modelo']}',
+                                            style: theme.textTheme.titleMedium?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+
+                                          // Estado
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: _getEstadoColor(maquina['estado']).withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: _getEstadoColor(maquina['estado']),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              maquina['estado'] ?? 'Sin estado',
+                                              style: TextStyle(
+                                                color: _getEstadoColor(maquina['estado']),
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+
+                                      // ID y capacidad
+                                      Text(
+                                        'ID: ${maquina['id']} | Capacidad: ${maquina['capacidad'] ?? 0} pasajeros',
+                                        style: theme.textTheme.bodyMedium,
+                                      ),
+
+                                      const SizedBox(height: 8),
+
+                                      // Fecha Revisión Técnica
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.calendar_today,
+                                            size: 14,
+                                            color: _getColorEstadoFecha(maquina['fechaRevisionTecnica']),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Revisión: ${_formatearFecha(maquina['fechaRevisionTecnica'])}',
+                                            style: TextStyle(
+                                              color: _getColorEstadoFecha(maquina['fechaRevisionTecnica']),
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Icon(
+                                            Icons.access_time,
+                                            size: 14,
+                                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Modificado: $fechaTexto',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+
+                                      const SizedBox(height: 8),
+
+                                      // Fotos indicador
+                                      if (fotos.length > 1)
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.photo_library,
+                                              size: 14,
+                                              color: theme.colorScheme.primary,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              '${fotos.length} fotos adjuntas',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: theme.colorScheme.primary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLegendItem({
-    required ThemeData theme,
-    required Color color,
-    required String title,
-    required String value,
-    double fontSize = 14,
-    double iconSize = 14,
-  }) {
-    return Row(
-      children: [
-        Container(
-          width: 16,
-          height: 16,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: theme.colorScheme.onSurface.withOpacity(0.7),
-                fontSize: fontSize,
-              ),
+              ],
             ),
-            Text(
-              value,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: fontSize + 2,
-              ),
-            ),
-          ],
+          ),
         ),
       ],
     );
@@ -1914,24 +1549,24 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             ),
           ),
 
-          badges.Badge(
-            showBadge: (_revisionesProximas + _revisionesVencidas) > 0,
-            badgeContent: Text(
-              '${_revisionesProximas + _revisionesVencidas}',
-              style: const TextStyle(color: Colors.white, fontSize: 10),
+          // Solo mostrar alertas si existen
+          if ((_revisionesProximas + _revisionesVencidas) > 0)
+            badges.Badge(
+              showBadge: true,
+              badgeContent: Text(
+                '${_revisionesProximas + _revisionesVencidas}',
+                style: const TextStyle(color: Colors.white, fontSize: 10),
+              ),
+              position: badges.BadgePosition.topEnd(top: -5, end: -5),
+              badgeStyle: const badges.BadgeStyle(
+                badgeColor: Colors.red,
+                padding: EdgeInsets.all(4),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.warning),
+                onPressed: _hayDatosMaquinas ? _navegarAGenerarReporte : null,
+              ),
             ),
-            position: badges.BadgePosition.topEnd(top: -5, end: -5),
-            badgeStyle: const badges.BadgeStyle(
-              badgeColor: Colors.red,
-              padding: EdgeInsets.all(4),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.notifications),
-              onPressed: () {
-                // Implementar pantalla de notificaciones
-              },
-            ),
-          ),
 
           IconButton(
             onPressed: () {
@@ -2096,15 +1731,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           icon: Icons.directions_bus_filled,
           color: theme.colorScheme.primary,
           description: 'Consulta la información detallada de todas las máquinas',
-          onTap: _hayDatosMaquinas ? _navegarAMaquinas : null,
-        ),
-        _buildMenuCard(
-          theme: theme,
-          title: 'Editar Máquina',
-          icon: Icons.edit_outlined,
-          color: Colors.green,
-          description: 'Añade o modifica información de las máquinas',
-          onTap: _editarMaquina,
+          onTap: _navegarAMaquinas,
         ),
         _buildMenuCard(
           theme: theme,
@@ -2112,18 +1739,26 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           icon: Icons.assessment,
           color: Colors.orange,
           description: 'Visualiza informes y estadísticas',
-          onTap: _hayDatosMaquinas ? _navegarAGenerarReporte : null,
+          onTap: _navegarAGenerarReporte,
           badge: (_revisionesProximas + _revisionesVencidas) > 0
               ? '${_revisionesProximas + _revisionesVencidas}'
               : null,
         ),
         _buildMenuCard(
           theme: theme,
-          title: 'Exportar a Excel',
+          title: 'Exportar Excel',
           icon: Icons.table_chart,
           color: const Color(0xFF00897B),
-          description: 'Genera un archivo Excel con los datos e imágenes',
-          onTap: _hayDatosMaquinas ? _navegarAExportarExcel : null,
+          description: 'Genera un archivo Excel con los datos',
+          onTap: _navegarAExportarExcel,
+        ),
+        _buildMenuCard(
+          theme: theme,
+          title: 'Crear Respaldo',
+          icon: Icons.save_alt,
+          color: const Color(0xFF7E57C2),
+          description: 'Crea un respaldo completo',
+          onTap: _navegarAExportarDocumento,
         ),
       ],
     )
@@ -2144,15 +1779,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           icon: Icons.directions_bus_filled,
           color: theme.colorScheme.primary,
           description: 'Consulta la información detallada',
-          onTap: _hayDatosMaquinas ? _navegarAMaquinas : null,
-        ),
-        _buildMenuCard(
-          theme: theme,
-          title: 'Editar Máquina',
-          icon: Icons.edit_outlined,
-          color: Colors.green,
-          description: 'Añade o modifica información',
-          onTap: _editarMaquina,
+          onTap: _navegarAMaquinas,
         ),
         _buildMenuCard(
           theme: theme,
@@ -2160,18 +1787,18 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           icon: Icons.assessment,
           color: Colors.orange,
           description: 'Visualiza informes y estadísticas',
-          onTap: _hayDatosMaquinas ? _navegarAGenerarReporte : null,
+          onTap: _navegarAGenerarReporte,
           badge: (_revisionesProximas + _revisionesVencidas) > 0
               ? '${_revisionesProximas + _revisionesVencidas}'
               : null,
         ),
         _buildMenuCard(
           theme: theme,
-          title: 'Exportar a Excel',
+          title: 'Exportar Excel',
           icon: Icons.table_chart,
           color: const Color(0xFF00897B),
-          description: 'Genera un Excel con datos e imágenes',
-          onTap: _hayDatosMaquinas ? _navegarAExportarExcel : null,
+          description: 'Genera un Excel con datos',
+          onTap: _navegarAExportarExcel,
         ),
         _buildMenuCard(
           theme: theme,
@@ -2179,7 +1806,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           icon: Icons.save_alt,
           color: const Color(0xFF7E57C2),
           description: 'Crea un respaldo completo',
-          onTap: _hayDatosMaquinas ? _navegarAExportarDocumento : null,
+          onTap: _navegarAExportarDocumento,
         ),
         _buildMenuCard(
           theme: theme,

@@ -63,7 +63,7 @@ class ExcelGenerator {
       }
 
       // Procesar imágenes y agregarlas a la carpeta
-      Map<String, List<String>> imagenesExportadas = await _exportarImagenes(maquinas, imagenesDir.path);
+      Map<String, String> imagenesExportadas = await _exportarImagenes(maquinas, imagenesDir.path);
 
       // Agregar datos de máquinas con referencias a imágenes
       _agregarDatosMaquinas(sheet, maquinas, imagenesExportadas);
@@ -92,41 +92,30 @@ class ExcelGenerator {
   }
 
   // Método para exportar imágenes a la carpeta seleccionada
-  static Future<Map<String, List<String>>> _exportarImagenes(
+  static Future<Map<String, String>> _exportarImagenes(
       List<Map<String, dynamic>> maquinas, String carpetaDestino) async {
-    Map<String, List<String>> imagenesExportadas = {};
+    Map<String, String> imagenesExportadas = {};
 
     try {
       for (var maquina in maquinas) {
-        if (maquina['fotos'] != null && maquina['fotos'] is List && maquina['fotos'].isNotEmpty) {
-          List<String> fotosOriginales = List<String>.from(maquina['fotos']);
-          List<String> fotosExportadas = [];
+        if (maquina['imagenMaquina'] != null && File(maquina['imagenMaquina']).existsSync()) {
+          final String imagenOriginal = maquina['imagenMaquina'];
 
-          // Crear subcarpeta para esta máquina
+          // Crear nombre único para la imagen
           final idMaquina = maquina['id'] ?? 'maquina';
-          final placaMaquina = maquina['placa'] ?? '';
-          final carpetaMaquina = '$carpetaDestino/${idMaquina}_$placaMaquina';
+          final numeroMaquina = maquina['numeroMaquina'] ?? '';
+          final extension = path.extension(imagenOriginal);
+          final nombreArchivo = 'maquina_${idMaquina}_${numeroMaquina}${extension}';
+          final rutaDestino = '$carpetaDestino/$nombreArchivo';
 
-          Directory(carpetaMaquina).createSync(recursive: true);
-
-          // Copiar cada imagen
-          for (int i = 0; i < fotosOriginales.length; i++) {
-            try {
-              final fotoOriginal = File(fotosOriginales[i]);
-              if (await fotoOriginal.exists()) {
-                final nombreArchivo = 'foto_${i + 1}${path.extension(fotosOriginales[i])}';
-                final rutaDestino = '$carpetaMaquina/$nombreArchivo';
-
-                await fotoOriginal.copy(rutaDestino);
-                fotosExportadas.add(rutaDestino);
-              }
-            } catch (e) {
-              print('Error al copiar imagen: $e');
+          try {
+            final fotoOriginal = File(imagenOriginal);
+            if (await fotoOriginal.exists()) {
+              await fotoOriginal.copy(rutaDestino);
+              imagenesExportadas[maquina['id'].toString()] = rutaDestino;
             }
-          }
-
-          if (fotosExportadas.isNotEmpty) {
-            imagenesExportadas[maquina['id'].toString()] = fotosExportadas;
+          } catch (e) {
+            print('Error al copiar imagen: $e');
           }
         }
       }
@@ -141,46 +130,53 @@ class ExcelGenerator {
   static void _agregarEncabezados(Sheet sheet) {
     List<String> headers = [
       // Información básica
-      'ID',
-      'Placa',
+      'ID Interno',
+      'Número de Máquina',
+      'Patente',
       'Modelo',
       'Capacidad',
       'Kilometraje',
-      'BIN',
+      'VIN',
       'Estado',
 
       // Revisión Técnica
       'Fecha Revisión Técnica',
 
-      // Filtros
-      'Modelo Filtro Aceite',
-      'Fecha Cambio Filtro Aceite',
-      'Modelo Filtro Aire',
-      'Fecha Cambio Filtro Aire',
-      'Modelo Filtro Petróleo',
-      'Fecha Cambio Filtro Petróleo',
+      // Elementos de Mantenimiento (hasta 10)
+      'Mantenimiento 1 - Título',
+      'Mantenimiento 1 - Descripción',
+      'Mantenimiento 1 - Fecha',
+      'Mantenimiento 2 - Título',
+      'Mantenimiento 2 - Descripción',
+      'Mantenimiento 2 - Fecha',
+      'Mantenimiento 3 - Título',
+      'Mantenimiento 3 - Descripción',
+      'Mantenimiento 3 - Fecha',
+      'Mantenimiento 4 - Título',
+      'Mantenimiento 4 - Descripción',
+      'Mantenimiento 4 - Fecha',
+      'Mantenimiento 5 - Título',
+      'Mantenimiento 5 - Descripción',
+      'Mantenimiento 5 - Fecha',
+      'Mantenimiento 6 - Título',
+      'Mantenimiento 6 - Descripción',
+      'Mantenimiento 6 - Fecha',
+      'Mantenimiento 7 - Título',
+      'Mantenimiento 7 - Descripción',
+      'Mantenimiento 7 - Fecha',
+      'Mantenimiento 8 - Título',
+      'Mantenimiento 8 - Descripción',
+      'Mantenimiento 8 - Fecha',
+      'Mantenimiento 9 - Título',
+      'Mantenimiento 9 - Descripción',
+      'Mantenimiento 9 - Fecha',
+      'Mantenimiento 10 - Título',
+      'Mantenimiento 10 - Descripción',
+      'Mantenimiento 10 - Fecha',
 
-      // Otras Revisiones
-      'Modelo Decantador',
-      'Fecha Revisión Decantador',
-
-      // Correas (hasta 6)
-      'Modelo Correa 1',
-      'Fecha Revisión Correa 1',
-      'Modelo Correa 2',
-      'Fecha Revisión Correa 2',
-      'Modelo Correa 3',
-      'Fecha Revisión Correa 3',
-      'Modelo Correa 4',
-      'Fecha Revisión Correa 4',
-      'Modelo Correa 5',
-      'Fecha Revisión Correa 5',
-      'Modelo Correa 6',
-      'Fecha Revisión Correa 6',
-
-      // Comentarios e imágenes
+      // Comentarios e imagen
       'Comentarios',
-      'Ruta Imágenes'
+      'Ruta Imagen'
     ];
 
     sheet.appendRow(headers);
@@ -198,53 +194,42 @@ class ExcelGenerator {
 
   // Método para agregar datos de máquinas
   static void _agregarDatosMaquinas(
-      Sheet sheet, List<Map<String, dynamic>> maquinas, Map<String, List<String>> imagenesExportadas) {
+      Sheet sheet, List<Map<String, dynamic>> maquinas, Map<String, String> imagenesExportadas) {
     for (var maquina in maquinas) {
-      // Obtener las correas con soporte para la nueva estructura
-      List<Map<String, dynamic>> correas = _obtenerCorreas(maquina);
+      // Obtener elementos de mantenimiento
+      List<Map<String, dynamic>> mantenimiento = _obtenerMantenimiento(maquina);
 
-      // Obtener ruta de imágenes para esta máquina
-      String rutaImagenes = '';
+      // Obtener ruta de imagen para esta máquina
+      String rutaImagen = '';
       if (imagenesExportadas.containsKey(maquina['id'].toString())) {
-        final carpetaImagenes = path.dirname(imagenesExportadas[maquina['id'].toString()]!.first);
-        rutaImagenes = carpetaImagenes;
+        rutaImagen = imagenesExportadas[maquina['id'].toString()]!;
       }
 
       List<dynamic> rowData = [
         // Información básica
         maquina['id'] ?? '',
-        maquina['placa'] ?? '',
+        maquina['numeroMaquina'] ?? '',
+        maquina['patente'] ?? '',
         maquina['modelo'] ?? '',
         maquina['capacidad']?.toString() ?? '',
         maquina['kilometraje']?.toString() ?? '',
-        maquina['bin'] ?? '',
+        maquina['vin'] ?? '',
         maquina['estado'] ?? '',
 
         // Revisión Técnica
         _formatearFecha(maquina['fechaRevisionTecnica']),
-
-        // Filtros
-        maquina['modeloFiltroAceite'] ?? '',
-        _formatearFecha(maquina['fechaCambioFiltroAceite']),
-        maquina['modeloFiltroAire'] ?? '',
-        _formatearFecha(maquina['fechaCambioFiltroAire']),
-        maquina['modeloFiltroPetroleo'] ?? '',
-        _formatearFecha(maquina['fechaCambioFiltroPetroleo']),
-
-        // Otras Revisiones
-        maquina['modeloDecantador'] ?? '',
-        _formatearFecha(maquina['fechaRevisionDecantador']),
       ];
 
-      // Agregar datos de correas (hasta 6)
-      for (int i = 0; i < 6; i++) {
-        if (i < correas.length) {
-          // Agregar modelo de correa
-          rowData.add(correas[i]['modelo'] ?? '');
-          // Agregar fecha de revisión de correa
-          rowData.add(_formatearFecha(correas[i]['fecha']));
+      // Agregar datos de mantenimiento (hasta 10)
+      for (int i = 0; i < 10; i++) {
+        if (i < mantenimiento.length) {
+          // Agregar título, descripción y fecha del elemento
+          rowData.add(mantenimiento[i]['titulo'] ?? '');
+          rowData.add(mantenimiento[i]['descripcion'] ?? '');
+          rowData.add(_formatearFecha(mantenimiento[i]['fecha']));
         } else {
-          // Agregar espacios vacíos para completar hasta 6 correas
+          // Agregar espacios vacíos para completar hasta 10 elementos
+          rowData.add('');
           rowData.add('');
           rowData.add('');
         }
@@ -253,33 +238,23 @@ class ExcelGenerator {
       // Comentarios
       rowData.add(maquina['comentario'] ?? '');
 
-      // Ruta de imágenes
-      rowData.add(rutaImagenes);
+      // Ruta de imagen
+      rowData.add(rutaImagen);
 
       // Agregar la fila completa al Excel
       sheet.appendRow(rowData);
     }
   }
 
-  // Método para obtener la lista de correas de una máquina
-  static List<Map<String, dynamic>> _obtenerCorreas(Map<String, dynamic> maquina) {
-    // Verificar si existe la nueva estructura de correas
-    if (maquina['correas'] != null && maquina['correas'] is List) {
+  // Método para obtener la lista de elementos de mantenimiento de una máquina
+  static List<Map<String, dynamic>> _obtenerMantenimiento(Map<String, dynamic> maquina) {
+    if (maquina['mantenimiento'] != null && maquina['mantenimiento'] is List) {
       try {
-        return List<Map<String, dynamic>>.from(maquina['correas']);
+        return List<Map<String, dynamic>>.from(maquina['mantenimiento']);
       } catch (e) {
-        print('Error al procesar correas: $e');
+        print('Error al procesar mantenimiento: $e');
       }
     }
-
-    // Compatibilidad con versión anterior (una sola correa)
-    if (maquina['modeloCorrea'] != null) {
-      return [{
-        'modelo': maquina['modeloCorrea'],
-        'fecha': maquina['fechaRevisionCorrea'],
-      }];
-    }
-
     return [];
   }
 
@@ -289,46 +264,32 @@ class ExcelGenerator {
     // Sin embargo, podemos definir una numeración de columnas para hacerlas más legibles
     int colNum = 0;
 
-    // Grupo: Información básica (columnas 0-6)
-    for (int i = 0; i <= 6; i++) {
+    // Grupo: Información básica (columnas 0-7)
+    for (int i = 0; i <= 7; i++) {
       var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
       cell.value = "${colNum + 1}. ${cell.value.toString()}";
       colNum++;
     }
 
-    // Grupo: Revisión Técnica (columna 7)
-    var cellRT = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: 0));
+    // Grupo: Revisión Técnica (columna 8)
+    var cellRT = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: 0));
     cellRT.value = "${colNum + 1}. ${cellRT.value.toString()}";
     colNum++;
 
-    // Grupo: Filtros (columnas 8-13)
-    for (int i = 8; i <= 13; i++) {
+    // Grupo: Mantenimiento (columnas 9-38, 3 columnas por cada elemento de mantenimiento)
+    for (int i = 9; i <= 38; i++) {
       var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
       cell.value = "${colNum + 1}. ${cell.value.toString()}";
       colNum++;
     }
 
-    // Grupo: Decantador (columnas 14-15)
-    for (int i = 14; i <= 15; i++) {
-      var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
-      cell.value = "${colNum + 1}. ${cell.value.toString()}";
-      colNum++;
-    }
-
-    // Grupo: Correas (columnas 16-27)
-    for (int i = 16; i <= 27; i++) {
-      var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
-      cell.value = "${colNum + 1}. ${cell.value.toString()}";
-      colNum++;
-    }
-
-    // Comentarios y ruta de imágenes (columnas 28-29)
-    var cellComentario = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 28, rowIndex: 0));
+    // Comentarios e imagen (columnas 39-40)
+    var cellComentario = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 39, rowIndex: 0));
     cellComentario.value = "${colNum + 1}. ${cellComentario.value.toString()}";
     colNum++;
 
-    var cellImagenes = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 29, rowIndex: 0));
-    cellImagenes.value = "${colNum + 1}. ${cellImagenes.value.toString()}";
+    var cellImagen = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 40, rowIndex: 0));
+    cellImagen.value = "${colNum + 1}. ${cellImagen.value.toString()}";
   }
 
   // Método para formatear fecha

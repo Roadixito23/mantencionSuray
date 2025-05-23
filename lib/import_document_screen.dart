@@ -251,7 +251,7 @@ class _ImportDocumentScreenState extends State<ImportDocumentScreen> {
                         itemBuilder: (context, index) {
                           final maquina = _datosImportados[index];
                           return ListTile(
-                            title: Text('${maquina['placa'] ?? 'Sin placa'} - ${maquina['modelo'] ?? 'Sin modelo'}'),
+                            title: Text('${maquina['patente'] ?? 'Sin patente'} - ${maquina['modelo'] ?? 'Sin modelo'}'),
                             subtitle: Text('ID: ${maquina['id'] ?? 'Sin ID'}'),
                             leading: const Icon(Icons.directions_bus),
                           );

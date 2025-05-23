@@ -64,11 +64,11 @@ class CustomDocumentHandler {
         return null;
       }
 
-      // Crear el documento personalizado
       final Map<String, dynamic> documento = {
-        'version': '1.0',
+        'version': '2.0', // Nueva versión para la estructura actualizada
         'fecha_exportacion': DateTime.now().toIso8601String(),
         'tipo_documento': 'Suray Backup',
+        'estructura': 'nueva', // Indicador de nueva estructura
         'datos': datos,
       };
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class MachineStatusBadge extends StatelessWidget {
   final String status;
@@ -22,9 +23,9 @@ class MachineStatusBadge extends StatelessWidget {
         badgeColor = Colors.green;
         badgeIcon = Icons.check_circle;
         break;
-      case 'en mantenimiento':
+      case 'en taller':
         badgeColor = Colors.orange;
-        badgeIcon = Icons.engineering;
+        badgeIcon = Icons.build;
         break;
       case 'fuera de servicio':
         badgeColor = Colors.red;
@@ -65,12 +66,12 @@ class MachineStatusBadge extends StatelessWidget {
 }
 
 class DateStatusIndicator extends StatelessWidget {
-  final String? fechaIso;
+  final dynamic fechaValue;
   final bool showIcon;
 
   const DateStatusIndicator({
     Key? key,
-    required this.fechaIso,
+    required this.fechaValue,
     this.showIcon = true,
   }) : super(key: key);
 
@@ -78,7 +79,7 @@ class DateStatusIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    if (fechaIso == null) {
+    if (fechaValue == null) {
       return Text(
         'No registrada',
         style: theme.textTheme.bodyMedium?.copyWith(
@@ -89,7 +90,18 @@ class DateStatusIndicator extends StatelessWidget {
     }
 
     try {
-      final DateTime fechaRevision = DateTime.parse(fechaIso!);
+      DateTime fechaRevision;
+
+      if (fechaValue is Timestamp) {
+        fechaRevision = fechaValue.toDate();
+      } else if (fechaValue is String) {
+        fechaRevision = DateTime.parse(fechaValue);
+      } else if (fechaValue is DateTime) {
+        fechaRevision = fechaValue;
+      } else {
+        throw FormatException('Formato de fecha no válido');
+      }
+
       final DateTime ahora = DateTime.now();
       final int diasRestantes = fechaRevision.difference(ahora).inDays;
 
@@ -190,19 +202,8 @@ class MachineCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Icono y estado
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: _obtenerColorEstado().withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.directions_bus,
-                      size: 28,
-                      color: _obtenerColorEstado(),
-                    ),
-                  ),
+                  // Imagen de la máquina o icono
+                  _buildMachineImage(theme),
                   const SizedBox(width: 16),
 
                   // Información principal
@@ -214,7 +215,7 @@ class MachineCard extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              machine['placa'] ?? 'Sin placa',
+                              machine['patente'] ?? 'Sin patente',
                               style: theme.textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: hayAlerta
@@ -229,15 +230,46 @@ class MachineCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          machine['modelo'] ?? 'Sin modelo',
-                          style: theme.textTheme.bodyLarge,
-                        ),
-                        Text(
-                          'ID: ${machine['id'] ?? 'No especificado'}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.7),
+                          'Nro: ${machine['numeroMaquina'] ?? 'No especificado'}',
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
+                        Text(
+                          machine['modelo'] ?? 'Sin modelo',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                        if (machine['vin'] != null && machine['vin'].toString().isNotEmpty)
+                          Text(
+                            'VIN: ${machine['vin']}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                          ),
+                        // Mostrar información de Firebase
+                        if (machine['docId'] != null)
+                          Container(
+                            margin: const EdgeInsets.only(top: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.cloud_done, size: 12, color: Colors.blue),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Sincronizado',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: Colors.blue,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -258,7 +290,7 @@ class MachineCard extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.safety_check,
+                      Icons.verified,
                       size: 20,
                       color: _getColorEstadoFecha(machine['fechaRevisionTecnica']),
                     ),
@@ -282,7 +314,7 @@ class MachineCard extends StatelessWidget {
                       ],
                     ),
                     const Spacer(),
-                    DateStatusIndicator(fechaIso: machine['fechaRevisionTecnica']),
+                    DateStatusIndicator(fechaValue: machine['fechaRevisionTecnica']),
                   ],
                 ),
               ),
@@ -326,11 +358,53 @@ class MachineCard extends StatelessWidget {
                 ],
               ),
 
-              // Fotos en miniatura (si hay)
-              _buildPhotoPreview(context),
+              // Mostrar elementos de mantenimiento con alertas
+              _buildMaintenancePreview(context),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMachineImage(ThemeData theme) {
+    if (machine['imagenMaquina'] != null && File(machine['imagenMaquina']).existsSync()) {
+      return Container(
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: theme.colorScheme.outline.withOpacity(0.3)),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.file(
+            File(machine['imagenMaquina']),
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return _buildDefaultIcon(theme);
+            },
+          ),
+        ),
+      );
+    } else {
+      return _buildDefaultIcon(theme);
+    }
+  }
+
+  Widget _buildDefaultIcon(ThemeData theme) {
+    return Container(
+      width: 60,
+      height: 60,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _obtenerColorEstado().withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(
+        Icons.directions_bus,
+        size: 36,
+        color: _obtenerColorEstado(),
       ),
     );
   }
@@ -375,17 +449,48 @@ class MachineCard extends StatelessWidget {
     );
   }
 
-  Widget _buildPhotoPreview(BuildContext context) {
+  Widget _buildMaintenancePreview(BuildContext context) {
     final theme = Theme.of(context);
-    final List<String> fotos = machine['fotos'] != null ?
-    List<String>.from(machine['fotos']) : [];
+    final List<dynamic> mantenimiento = machine['mantenimiento'] ?? [];
 
-    if (fotos.isEmpty) {
+    if (mantenimiento.isEmpty) {
+      return const SizedBox();
+    }
+
+    // Contar elementos que requieren atención
+    int elementosConAlerta = 0;
+    for (var elemento in mantenimiento) {
+      if (elemento['fecha'] != null && elemento['tieneFecha'] == true) {
+        try {
+          DateTime fecha;
+
+          if (elemento['fecha'] is Timestamp) {
+            fecha = (elemento['fecha'] as Timestamp).toDate();
+          } else if (elemento['fecha'] is String) {
+            fecha = DateTime.parse(elemento['fecha']);
+          } else if (elemento['fecha'] is DateTime) {
+            fecha = elemento['fecha'];
+          } else {
+            continue;
+          }
+
+          final DateTime ahora = DateTime.now();
+          final int diasRestantes = fecha.difference(ahora).inDays;
+
+          if (diasRestantes <= 30) {
+            elementosConAlerta++;
+          }
+        } catch (e) {
+          // Ignorar fechas inválidas
+        }
+      }
+    }
+
+    if (elementosConAlerta == 0) {
       return const SizedBox();
     }
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 16),
         Divider(color: theme.dividerColor),
@@ -393,48 +498,19 @@ class MachineCard extends StatelessWidget {
         Row(
           children: [
             Icon(
-              Icons.photo_library,
+              Icons.warning,
               size: 16,
-              color: theme.colorScheme.primary,
+              color: Colors.orange,
             ),
             const SizedBox(width: 8),
             Text(
-              'Fotos adjuntas (${fotos.length})',
+              '$elementosConAlerta elemento(s) de mantenimiento requieren atención',
               style: theme.textTheme.bodyMedium?.copyWith(
+                color: Colors.orange,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 80,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: fotos.length,
-            itemBuilder: (context, index) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: SizedBox(
-                    width: 80,
-                    height: 80,
-                    child: Image.file(
-                      File(fotos[index]),
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: theme.colorScheme.surfaceVariant,
-                          child: const Icon(Icons.broken_image),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
         ),
       ],
     );
@@ -445,9 +521,9 @@ class MachineCard extends StatelessWidget {
 
     if (estado == 'Activo') {
       return Colors.green;
-    } else if (estado == 'En mantenimiento') {
+    } else if (estado == 'En Taller') {
       return Colors.orange;
-    } else if (estado == 'Fuera de servicio') {
+    } else if (estado == 'Fuera de Servicio') {
       return Colors.red;
     }
 
@@ -455,29 +531,82 @@ class MachineCard extends StatelessWidget {
   }
 
   bool _verificarAlerta() {
-    if (machine['fechaRevisionTecnica'] == null) {
-      return false;
+    // Verificar revisión técnica
+    if (machine['fechaRevisionTecnica'] != null) {
+      try {
+        DateTime fechaRevision;
+
+        if (machine['fechaRevisionTecnica'] is Timestamp) {
+          fechaRevision = (machine['fechaRevisionTecnica'] as Timestamp).toDate();
+        } else if (machine['fechaRevisionTecnica'] is String) {
+          fechaRevision = DateTime.parse(machine['fechaRevisionTecnica']);
+        } else if (machine['fechaRevisionTecnica'] is DateTime) {
+          fechaRevision = machine['fechaRevisionTecnica'];
+        } else {
+          return false;
+        }
+
+        final DateTime ahora = DateTime.now();
+        final int diasRestantes = fechaRevision.difference(ahora).inDays;
+
+        if (diasRestantes <= 30) {
+          return true;
+        }
+      } catch (e) {
+        // Ignorar fechas inválidas
+      }
     }
 
-    try {
-      final DateTime fechaRevision = DateTime.parse(machine['fechaRevisionTecnica']);
-      final DateTime ahora = DateTime.now();
-      final int diasRestantes = fechaRevision.difference(ahora).inDays;
+    // Verificar elementos de mantenimiento
+    final List<dynamic> mantenimiento = machine['mantenimiento'] ?? [];
+    for (var elemento in mantenimiento) {
+      if (elemento['fecha'] != null && elemento['tieneFecha'] == true) {
+        try {
+          DateTime fecha;
 
-      // Alerta si faltan 30 días o menos, o ya está vencido
-      return diasRestantes <= 30;
-    } catch (e) {
-      return false;
+          if (elemento['fecha'] is Timestamp) {
+            fecha = (elemento['fecha'] as Timestamp).toDate();
+          } else if (elemento['fecha'] is String) {
+            fecha = DateTime.parse(elemento['fecha']);
+          } else if (elemento['fecha'] is DateTime) {
+            fecha = elemento['fecha'];
+          } else {
+            continue;
+          }
+
+          final DateTime ahora = DateTime.now();
+          final int diasRestantes = fecha.difference(ahora).inDays;
+
+          if (diasRestantes <= 30) {
+            return true;
+          }
+        } catch (e) {
+          // Ignorar fechas inválidas
+        }
+      }
     }
+
+    return false;
   }
 
-  Color _getColorEstadoFecha(String? fechaIso) {
-    if (fechaIso == null) {
+  Color _getColorEstadoFecha(dynamic fechaValue) {
+    if (fechaValue == null) {
       return Colors.grey;
     }
 
     try {
-      final DateTime fecha = DateTime.parse(fechaIso);
+      DateTime fecha;
+
+      if (fechaValue is Timestamp) {
+        fecha = fechaValue.toDate();
+      } else if (fechaValue is String) {
+        fecha = DateTime.parse(fechaValue);
+      } else if (fechaValue is DateTime) {
+        fecha = fechaValue;
+      } else {
+        return Colors.grey;
+      }
+
       final DateTime ahora = DateTime.now();
       final int diasRestantes = fecha.difference(ahora).inDays;
 
@@ -493,13 +622,24 @@ class MachineCard extends StatelessWidget {
     }
   }
 
-  String _formatearFecha(String? fechaIso) {
-    if (fechaIso == null) {
+  String _formatearFecha(dynamic fechaValue) {
+    if (fechaValue == null) {
       return 'No registrada';
     }
 
     try {
-      final DateTime fecha = DateTime.parse(fechaIso);
+      DateTime fecha;
+
+      if (fechaValue is Timestamp) {
+        fecha = fechaValue.toDate();
+      } else if (fechaValue is String) {
+        fecha = DateTime.parse(fechaValue);
+      } else if (fechaValue is DateTime) {
+        fecha = fechaValue;
+      } else {
+        return 'Fecha inválida';
+      }
+
       return '${fecha.day}/${fecha.month}/${fecha.year}';
     } catch (e) {
       return 'Fecha inválida';

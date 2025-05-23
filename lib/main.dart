@@ -1,11 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'splash.dart';
 import 'providers/theme_provider.dart';
 import 'theme/app_themes.dart';
 
-void main() {
+void main() async {
+  // Asegurar que los widgets estén inicializados antes de Firebase
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Inicializar Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeProvider(),

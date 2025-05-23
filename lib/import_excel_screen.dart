@@ -168,8 +168,8 @@ class _ImportExcelScreenState extends State<ImportExcelScreen> {
             // Manejar campos especiales
             if (header == 'ID' || header == 'id') {
               maquina['id'] = value;
-            } else if (header == 'Placa' || header == 'placa') {
-              maquina['placa'] = value.toUpperCase();
+            } else if (header == 'Patente' || header == 'patente') {
+              maquina['patente'] = value.toUpperCase();
             } else if (header == 'Modelo' || header == 'modelo') {
               maquina['modelo'] = value;
             } else if (header.contains('Capacidad')) {
@@ -208,8 +208,8 @@ class _ImportExcelScreenState extends State<ImportExcelScreen> {
           }
         }
 
-        // Validar que tenga al menos los campos requeridos: id, placa y modelo
-        if (maquina.containsKey('id') && maquina.containsKey('placa') && maquina.containsKey('modelo')) {
+        // Validar que tenga al menos los campos requeridos: id, patente y modelo
+        if (maquina.containsKey('id') && maquina.containsKey('patente') && maquina.containsKey('modelo')) {
           maquinasExcel.add(maquina);
         }
       }
@@ -455,7 +455,7 @@ class _ImportExcelScreenState extends State<ImportExcelScreen> {
                         itemBuilder: (context, index) {
                           final maquina = _maquinasImportadas[index];
                           return ListTile(
-                            title: Text('${maquina['placa']} - ${maquina['modelo']}'),
+                            title: Text('${maquina['patente']} - ${maquina['modelo']}'),
                             subtitle: Text('ID: ${maquina['id']}'),
                             leading: const Icon(Icons.directions_bus),
                           );
